@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* 自定义滚动条 macOS 风格 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content code {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content h1 {
+  font-size: 1.25rem;
+}
+
+.markdown-content h2 {
+  font-size: 1.125rem;
+}
+
+.markdown-content h3 {
+  font-size: 1rem;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 1rem;
+  color: #6b7280;
+  margin: 0.5rem 0;
+}
+
+/* 代码块样式优化 */
+.markdown-content pre {
+  margin: 0.5rem 0 !important;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+
+.markdown-content pre code {
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+/* 响应式布局优化 */
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  min-width: 800px;
+  min-height: 600px;
+  overflow: hidden;
+}
+
+/* 防止内容溢出 */
+.ant-layout {
+  overflow: hidden;
+}
+
+/* 确保文本区域可以正确滚动 */
+.ant-input,
+.ant-input-textarea,
+textarea {
+  min-width: 0;
+}
+
+/* Card 内容防止溢出 */
+.ant-card-body {
+  overflow: hidden;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 代码块滚动 */
+pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* 确保 flex 布局正确 */
+.ant-layout-sider {
+  flex: 0 0 auto !important;
+}
+
+/* 响应式断点 */
+@media (max-width: 1200px) {
+  #root {
+    min-width: 768px;
+  }
+
+  /* 小屏幕下显示汉堡按钮 */
+  .drawer-trigger-btn {
+    display: inline-flex !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #root {
+    min-width: 600px;
+  }
+}
+
+/* 防止长文本溢出 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 强制文本换行 */
+.text-break {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
