@@ -6,6 +6,7 @@ import ConfigEditor from './components/ConfigEditor'
 import RecordControl from './components/RecordControl'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
+import SettingsModal from './components/SettingsModal'
 import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme } from './theme'
 import 'antd/dist/reset.css'
@@ -22,6 +23,7 @@ function App() {
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false)
   const [siderCollapsed, setSiderCollapsed] = useState<boolean>(false)
   const [darkMode, setDarkMode] = useState<boolean>(false)
+  const [settingsVisible, setSettingsVisible] = useState<boolean>(false)
 
   useEffect(() => {
     // 检查 Claude Code 是否安装
@@ -111,6 +113,13 @@ function App() {
     })
   }
 
+  const handleSettingsClose = async () => {
+    setSettingsVisible(false)
+    // 重新加载设置以更新暗色模式状态
+    const settings = await window.electronAPI.getAppSettings()
+    setDarkMode(settings.darkMode)
+  }
+
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme}>
       <Layout style={{ height: '100vh', minHeight: 600 }}>
@@ -118,6 +127,7 @@ function App() {
           claudeDir={claudeDir}
           darkMode={darkMode}
           onThemeToggle={handleThemeToggle}
+          onOpenSettings={() => setSettingsVisible(true)}
         />
 
         <Layout style={{ minHeight: 0 }}>
@@ -206,6 +216,12 @@ function App() {
             </div>
           </div>
         </Drawer>
+
+        {/* 设置弹窗 */}
+        <SettingsModal
+          visible={settingsVisible}
+          onClose={handleSettingsClose}
+        />
 
       </Layout>
     </ConfigProvider>
