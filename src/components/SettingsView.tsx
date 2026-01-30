@@ -44,6 +44,11 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
           apiKey: '',
           apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
           model: 'gemini-2.0-flash-exp'
+        },
+        custom: {
+          apiKey: '',
+          apiBaseUrl: '',
+          model: ''
         }
       }
     }
@@ -92,6 +97,11 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
       name: 'Google Gemini (免费)',
       getKeyUrl: 'https://aistudio.google.com/app/apikey',
       description: '慷慨的免费额度'
+    },
+    custom: {
+      name: '自定义',
+      getKeyUrl: '',
+      description: '使用自定义的 OpenAI 兼容 API'
     }
   }
 
@@ -107,7 +117,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
   }
 
   // 切换 AI 提供商
-  const handleProviderChange = (provider: 'deepseek' | 'groq' | 'gemini') => {
+  const handleProviderChange = (provider: 'deepseek' | 'groq' | 'gemini' | 'custom') => {
     const newSettings = {
       ...settings,
       ai: {
@@ -423,6 +433,15 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                         </div>
                       ),
                       value: 'deepseek'
+                    },
+                    {
+                      label: (
+                        <div>
+                          <div style={{ fontWeight: 500 }}>自定义</div>
+                          <div style={{ fontSize: 12, color: '#1890ff' }}>⚙️ OpenAI 兼容 API</div>
+                        </div>
+                      ),
+                      value: 'custom'
                     }
                   ]}
                 />
@@ -431,13 +450,15 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <Text style={{ color: themeVars.text, fontWeight: 500 }}>API Key</Text>
-                  <Link
-                    href={providerConfigs[settings.ai.provider].getKeyUrl}
-                    target="_blank"
-                    style={{ fontSize: '12px' }}
-                  >
-                    获取 API Key <LinkOutlined />
-                  </Link>
+                  {providerConfigs[settings.ai.provider].getKeyUrl && (
+                    <Link
+                      href={providerConfigs[settings.ai.provider].getKeyUrl}
+                      target="_blank"
+                      style={{ fontSize: '12px' }}
+                    >
+                      获取 API Key <LinkOutlined />
+                    </Link>
+                  )}
                 </div>
                 <Input.Password
                   value={getCurrentProviderConfig().apiKey}
@@ -480,12 +501,14 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                 <Text style={{ color: themeVars.text }}>模型</Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
-                  默认已选择最优模型，通常无需修改
+                  {settings.ai.provider === 'custom'
+                    ? '填写你要使用的模型名称（如 gpt-4, claude-3-opus 等）'
+                    : '默认已选择最优模型，通常无需修改'}
                 </Text>
                 <Input
                   value={getCurrentProviderConfig().model}
                   onChange={(e) => updateCurrentProviderConfig('model', e.target.value)}
-                  placeholder={getCurrentProviderConfig().model}
+                  placeholder={settings.ai.provider === 'custom' ? '例如: gpt-4' : getCurrentProviderConfig().model}
                 />
               </div>
 
@@ -493,12 +516,14 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                 <Text style={{ color: themeVars.text }}>API 地址</Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
-                  高级选项，通常无需修改
+                  {settings.ai.provider === 'custom'
+                    ? '填写 OpenAI 兼容的 API 地址（支持代理、中转等）'
+                    : '高级选项，通常无需修改'}
                 </Text>
                 <Input
                   value={getCurrentProviderConfig().apiBaseUrl}
                   onChange={(e) => updateCurrentProviderConfig('apiBaseUrl', e.target.value)}
-                  placeholder={getCurrentProviderConfig().apiBaseUrl}
+                  placeholder={settings.ai.provider === 'custom' ? '例如: https://api.openai.com/v1' : getCurrentProviderConfig().apiBaseUrl}
                 />
               </div>
             </Space>

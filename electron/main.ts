@@ -154,7 +154,7 @@ ipcMain.handle('get-app-settings', async () => {
     autoStart: false,
     ai: {
       enabled: false,
-      provider: 'groq' as 'groq' | 'deepseek' | 'gemini',
+      provider: 'groq' as 'groq' | 'deepseek' | 'gemini' | 'custom',
       providers: {
         groq: {
           apiKey: '',
@@ -170,6 +170,11 @@ ipcMain.handle('get-app-settings', async () => {
           apiKey: '',
           apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
           model: 'gemini-2.0-flash-exp'
+        },
+        custom: {
+          apiKey: '',
+          apiBaseUrl: '',
+          model: ''
         }
       }
     }
@@ -620,7 +625,8 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
       const providerNames = {
         groq: 'Groq',
         deepseek: 'DeepSeek',
-        gemini: 'Google Gemini'
+        gemini: 'Google Gemini',
+        custom: '自定义'
       }
       return {
         success: false,
@@ -640,6 +646,22 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
       return {
         success: false,
         error: 'API Key 格式不正确，Groq API Key 应以 "gsk_" 开头'
+      }
+    }
+
+    // 自定义提供商需要验证必填字段
+    if (provider === 'custom') {
+      if (!currentConfig.apiBaseUrl) {
+        return {
+          success: false,
+          error: '自定义提供商需要配置 API 地址'
+        }
+      }
+      if (!currentConfig.model) {
+        return {
+          success: false,
+          error: '自定义提供商需要配置模型名称'
+        }
       }
     }
 
@@ -683,7 +705,7 @@ ${conversations}`
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
     try {
-      // Gemini 使用不同的 API 格式
+      // Gemini 使用不同的 API 格式（注意：自定义提供商默认使用 OpenAI 格式）
       if (provider === 'gemini') {
         const response = await fetch(
           `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
@@ -734,7 +756,7 @@ ${conversations}`
         }
       }
 
-      // OpenAI 兼容格式 (Groq, DeepSeek)
+      // OpenAI 兼容格式 (Groq, DeepSeek, Custom)
       const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {

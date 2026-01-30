@@ -21,12 +21,13 @@ export interface ProviderConfig {
 // AI 设置接口
 export interface AISettings {
   enabled: boolean
-  provider: 'deepseek' | 'groq' | 'gemini'
+  provider: 'deepseek' | 'groq' | 'gemini' | 'custom'
   // 每个提供商的独立配置
   providers: {
     deepseek: ProviderConfig
     groq: ProviderConfig
     gemini: ProviderConfig
+    custom: ProviderConfig
   }
 }
 
