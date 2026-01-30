@@ -14,7 +14,7 @@ export interface RecordConfig {
 // AI 设置接口
 export interface AISettings {
   enabled: boolean
-  provider: 'deepseek'
+  provider: 'deepseek' | 'groq' | 'gemini'
   apiKey: string
   apiBaseUrl: string
   model: string

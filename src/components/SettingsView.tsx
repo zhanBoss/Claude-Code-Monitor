@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented } from 'antd'
+import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented, Select } from 'antd'
 import {
   ArrowLeftOutlined,
   SaveOutlined,
@@ -27,10 +27,10 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     autoStart: false,
     ai: {
       enabled: false,
-      provider: 'deepseek',
+      provider: 'groq',
       apiKey: '',
-      apiBaseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat'
+      apiBaseUrl: 'https://api.groq.com/openai/v1',
+      model: 'llama-3.3-70b-versatile'
     }
   })
   const [apiKeySaving, setApiKeySaving] = useState(false)
@@ -39,10 +39,54 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
 
   const themeVars = getThemeVars(darkMode)
 
+  // AI 提供商配置
+  const providerConfigs = {
+    groq: {
+      name: 'Groq (免费)',
+      apiBaseUrl: 'https://api.groq.com/openai/v1',
+      model: 'llama-3.3-70b-versatile',
+      getKeyUrl: 'https://console.groq.com/keys',
+      description: '完全免费，速度超快'
+    },
+    deepseek: {
+      name: 'DeepSeek',
+      apiBaseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat',
+      getKeyUrl: 'https://platform.deepseek.com/api_keys',
+      description: '有限免费额度'
+    },
+    gemini: {
+      name: 'Google Gemini (免费)',
+      apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+      model: 'gemini-2.0-flash-exp',
+      getKeyUrl: 'https://aistudio.google.com/app/apikey',
+      description: '慷慨的免费额度'
+    }
+  }
+
   // 遮罩 API Key（显示前4位和后4位）
   const maskApiKey = (key: string): string => {
     if (!key || key.length <= 8) return key
     return `${key.substring(0, 4)}${'*'.repeat(Math.min(key.length - 8, 16))}${key.substring(key.length - 4)}`
+  }
+
+  // 切换 AI 提供商
+  const handleProviderChange = (provider: 'deepseek' | 'groq' | 'gemini') => {
+    const config = providerConfigs[provider]
+    const newSettings = {
+      ...settings,
+      ai: {
+        ...settings.ai,
+        provider,
+        apiBaseUrl: config.apiBaseUrl,
+        model: config.model,
+        // 切换提供商时清空 API Key
+        apiKey: ''
+      }
+    }
+    setSettings(newSettings)
+    saveSettingsImmediately(newSettings)
+    setIsEditingApiKey(false)
   }
 
   useEffect(() => {
@@ -279,11 +323,44 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               <Divider style={{ margin: 0 }} />
 
               <div>
-                <Text style={{ color: themeVars.text }}>API 提供商</Text>
-                <Input
-                  value="DeepSeek"
-                  disabled
-                  style={{ marginTop: '8px' }}
+                <Text style={{ color: themeVars.text, fontWeight: 500 }}>AI 提供商</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
+                  {providerConfigs[settings.ai.provider].description}
+                </Text>
+                <Select
+                  value={settings.ai.provider}
+                  onChange={handleProviderChange}
+                  style={{ width: '100%' }}
+                  options={[
+                    {
+                      label: (
+                        <div>
+                          <div style={{ fontWeight: 500 }}>Groq (推荐)</div>
+                          <div style={{ fontSize: 12, color: '#52c41a' }}>✓ 完全免费 · 速度超快</div>
+                        </div>
+                      ),
+                      value: 'groq'
+                    },
+                    {
+                      label: (
+                        <div>
+                          <div style={{ fontWeight: 500 }}>Google Gemini</div>
+                          <div style={{ fontSize: 12, color: '#52c41a' }}>✓ 慷慨免费额度</div>
+                        </div>
+                      ),
+                      value: 'gemini'
+                    },
+                    {
+                      label: (
+                        <div>
+                          <div style={{ fontWeight: 500 }}>DeepSeek</div>
+                          <div style={{ fontSize: 12, color: '#faad14' }}>⚠ 有限免费额度</div>
+                        </div>
+                      ),
+                      value: 'deepseek'
+                    }
+                  ]}
                 />
               </div>
 
@@ -291,7 +368,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <Text style={{ color: themeVars.text, fontWeight: 500 }}>API Key</Text>
                   <Link
-                    href="https://platform.deepseek.com/api_keys"
+                    href={providerConfigs[settings.ai.provider].getKeyUrl}
                     target="_blank"
                     style={{ fontSize: '12px' }}
                   >
@@ -304,7 +381,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                     updateAISetting('apiKey', e.target.value)
                     setIsEditingApiKey(true)
                   }}
-                  placeholder="请输入 DeepSeek API Key"
+                  placeholder={`请输入 ${providerConfigs[settings.ai.provider].name} API Key`}
                   visibilityToggle={{
                     visible: apiKeyVisible,
                     onVisibleChange: setApiKeyVisible
@@ -335,21 +412,27 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
 
               <div>
                 <Text style={{ color: themeVars.text }}>模型</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
+                  默认已选择最优模型，通常无需修改
+                </Text>
                 <Input
                   value={settings.ai.model}
                   onChange={(e) => updateAISetting('model', e.target.value)}
-                  placeholder="deepseek-chat"
-                  style={{ marginTop: '8px' }}
+                  placeholder={providerConfigs[settings.ai.provider].model}
                 />
               </div>
 
               <div>
                 <Text style={{ color: themeVars.text }}>API 地址</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
+                  高级选项，通常无需修改
+                </Text>
                 <Input
                   value={settings.ai.apiBaseUrl}
                   onChange={(e) => updateAISetting('apiBaseUrl', e.target.value)}
-                  placeholder="https://api.deepseek.com/v1"
-                  style={{ marginTop: '8px' }}
+                  placeholder={providerConfigs[settings.ai.provider].apiBaseUrl}
                 />
               </div>
             </Space>

@@ -154,10 +154,10 @@ ipcMain.handle('get-app-settings', async () => {
     autoStart: false,
     ai: {
       enabled: false,
-      provider: 'deepseek' as const,
+      provider: 'groq' as 'groq' | 'deepseek' | 'gemini',
       apiKey: '',
-      apiBaseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat'
+      apiBaseUrl: 'https://api.groq.com/openai/v1',
+      model: 'llama-3.3-70b-versatile'
     }
   }
 
@@ -570,10 +570,10 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
     // 获取 AI 设置
     const defaultAiSettings = {
       enabled: false,
-      provider: 'deepseek' as const,
+      provider: 'groq' as 'groq' | 'deepseek' | 'gemini',
       apiKey: '',
-      apiBaseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat'
+      apiBaseUrl: 'https://api.groq.com/openai/v1',
+      model: 'llama-3.3-70b-versatile'
     }
 
     const aiSettings = store.get('ai', defaultAiSettings) as any
@@ -586,17 +586,29 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
     }
 
     if (!aiSettings.apiKey) {
+      const providerNames = {
+        groq: 'Groq',
+        deepseek: 'DeepSeek',
+        gemini: 'Google Gemini'
+      }
       return {
         success: false,
-        error: '未配置 DeepSeek API Key，请前往设置页面配置'
+        error: `未配置 ${providerNames[aiSettings.provider] || 'AI'} API Key，请前往设置页面配置`
       }
     }
 
-    // 验证 API Key 格式
-    if (!aiSettings.apiKey.startsWith('sk-')) {
+    // 验证 API Key 格式（只对特定提供商验证）
+    if (aiSettings.provider === 'deepseek' && !aiSettings.apiKey.startsWith('sk-')) {
       return {
         success: false,
         error: 'API Key 格式不正确，DeepSeek API Key 应以 "sk-" 开头'
+      }
+    }
+
+    if (aiSettings.provider === 'groq' && !aiSettings.apiKey.startsWith('gsk_')) {
+      return {
+        success: false,
+        error: 'API Key 格式不正确，Groq API Key 应以 "gsk_" 开头'
       }
     }
 
@@ -635,11 +647,63 @@ ${conversations}`
 
     const prompt = templates[request.type] || templates.detailed
 
-    // 调用 DeepSeek API
+    // 调用 AI API
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
     try {
+      // Gemini 使用不同的 API 格式
+      if (aiSettings.provider === 'gemini') {
+        const response = await fetch(
+          `${aiSettings.apiBaseUrl}/models/${aiSettings.model}:generateContent?key=${aiSettings.apiKey}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: '你是一个专业的技术对话总结助手，擅长提取关键信息和技术要点。请使用简洁清晰的中文进行总结。\n\n' + prompt
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 2000
+              }
+            }),
+            signal: controller.signal
+          }
+        )
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          return {
+            success: false,
+            error: `Gemini API 错误: ${response.status} ${(errorData as any).error?.message || response.statusText}`
+          }
+        }
+
+        const data = await response.json()
+        const summary = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+        if (!summary) {
+          return {
+            success: false,
+            error: 'Gemini API 返回格式异常'
+          }
+        }
+
+        return {
+          success: true,
+          summary: summary.trim(),
+          tokensUsed: data.usageMetadata?.totalTokenCount || 0
+        }
+      }
+
+      // OpenAI 兼容格式 (Groq, DeepSeek)
       const response = await fetch(`${aiSettings.apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
