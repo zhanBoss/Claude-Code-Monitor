@@ -78,5 +78,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openConfigFile: () => ipcRenderer.invoke('open-config-file'),
 
   // 在文件管理器中显示配置文件
-  showConfigInFolder: () => ipcRenderer.invoke('show-config-in-folder')
+  showConfigInFolder: () => ipcRenderer.invoke('show-config-in-folder'),
+
+  // 读取应用配置文件内容
+  readAppConfigFile: () => ipcRenderer.invoke('read-app-config-file'),
+
+  // 保存应用配置文件内容
+  saveAppConfigFile: (content: string) => ipcRenderer.invoke('save-app-config-file', content),
+
+  // 卸载应用
+  uninstallApp: () => ipcRenderer.invoke('uninstall-app')
 })

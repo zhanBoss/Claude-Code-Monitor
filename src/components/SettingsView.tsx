@@ -10,20 +10,26 @@ import {
   MoonOutlined,
   LaptopOutlined,
   FolderOpenOutlined,
-  EditOutlined
+  DeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
+import ConfigFileEditor from './ConfigFileEditor'
 
 const { Title, Text, Link } = Typography
+
+// AI 提供商类型
+type ProviderType = 'groq' | 'deepseek' | 'gemini' | 'custom'
 
 interface SettingsViewProps {
   onBack: () => void
   darkMode: boolean
   onThemeModeChange?: (themeMode: 'light' | 'dark' | 'system') => void
+  claudeDir?: string
 }
 
-function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps) {
+function SettingsView({ onBack, darkMode, onThemeModeChange, claudeDir }: SettingsViewProps) {
   const [settings, setSettings] = useState<AppSettings>({
     themeMode: 'system',
     autoStart: false,
@@ -57,62 +63,24 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
   const [apiKeySaving, setApiKeySaving] = useState(false)
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
   const [isEditingApiKey, setIsEditingApiKey] = useState(false)
+  const [configEditorVisible, setConfigEditorVisible] = useState(false)
+  const [configPath, setConfigPath] = useState('')
 
   const themeVars = getThemeVars(darkMode)
 
-  // 查看配置文件位置
+  // 打开配置文件编辑器
   const handleShowConfigPath = async () => {
     try {
       const path = await window.electronAPI.getConfigPath()
-      Modal.info({
-        title: '配置文件位置',
-        content: (
-          <div>
-            <Text copyable={{ text: path }}>{path}</Text>
-            <p style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
-              你的 API Key 等设置都加密存储在这个文件中
-            </p>
-            <Space style={{ marginTop: 16 }} size="middle">
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={async () => {
-                  try {
-                    await window.electronAPI.openConfigFile()
-                    message.success('已在默认编辑器中打开配置文件')
-                  } catch (error) {
-                    message.error('打开配置文件失败')
-                  }
-                }}
-              >
-                编辑配置文件
-              </Button>
-              <Button
-                icon={<FolderOpenOutlined />}
-                onClick={async () => {
-                  try {
-                    await window.electronAPI.showConfigInFolder()
-                    message.success('已在文件管理器中显示')
-                  } catch (error) {
-                    message.error('打开文件夹失败')
-                  }
-                }}
-              >
-                打开文件位置
-              </Button>
-            </Space>
-          </div>
-        ),
-        okText: '我知道了',
-        width: 600
-      })
+      setConfigPath(path)
+      setConfigEditorVisible(true)
     } catch (error) {
       message.error('获取配置路径失败')
     }
   }
 
   // AI 提供商配置
-  const providerConfigs = {
+  const providerConfigs: Record<ProviderType, { name: string; getKeyUrl: string; description: string }> = {
     groq: {
       name: 'Groq (免费)',
       getKeyUrl: 'https://console.groq.com/keys',
@@ -133,6 +101,12 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
       getKeyUrl: '',
       description: '完全自定义配置，支持任意 API 服务'
     }
+  }
+
+  // 获取当前提供商配置（类型安全）
+  const getCurrentProviderInfo = () => {
+    const provider = settings.ai.provider as ProviderType
+    return providerConfigs[provider] || providerConfigs.groq
   }
 
   // 获取当前提供商的配置（带默认值保护）
@@ -205,32 +179,32 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
       }
 
       // 确保每个 provider 都存在
-      const defaultProviders = {
-        groq: {
-          apiKey: '',
-          apiBaseUrl: 'https://api.groq.com/openai/v1',
-          model: 'llama-3.3-70b-versatile'
-        },
-        deepseek: {
-          apiKey: '',
-          apiBaseUrl: 'https://api.deepseek.com/v1',
-          model: 'deepseek-chat'
-        },
-        gemini: {
-          apiKey: '',
-          apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-          model: 'gemini-2.0-flash-exp'
-        },
-        custom: {
-          apiKey: '',
-          apiBaseUrl: '',
-          model: ''
-        }
-      }
-
-      Object.keys(defaultProviders).forEach(provider => {
+      const providers: ProviderType[] = ['groq', 'deepseek', 'gemini', 'custom']
+      providers.forEach(provider => {
         if (!loadedSettings.ai.providers[provider]) {
-          loadedSettings.ai.providers[provider] = defaultProviders[provider]
+          const defaults: Record<ProviderType, { apiKey: string; apiBaseUrl: string; model: string }> = {
+            groq: {
+              apiKey: '',
+              apiBaseUrl: 'https://api.groq.com/openai/v1',
+              model: 'llama-3.3-70b-versatile'
+            },
+            deepseek: {
+              apiKey: '',
+              apiBaseUrl: 'https://api.deepseek.com/v1',
+              model: 'deepseek-chat'
+            },
+            gemini: {
+              apiKey: '',
+              apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+              model: 'gemini-2.0-flash-exp'
+            },
+            custom: {
+              apiKey: '',
+              apiBaseUrl: '',
+              model: ''
+            }
+          }
+          loadedSettings.ai.providers[provider] = defaults[provider]
         }
       })
 
@@ -302,6 +276,37 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     }
     setSettings(newSettings)
     saveSettingsImmediately(newSettings)
+  }
+
+  // 卸载应用
+  const handleUninstall = () => {
+    Modal.confirm({
+      title: '确认卸载应用',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>卸载应用将执行以下操作：</p>
+          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+            <li>移除所有配置文件和历史记录</li>
+            <li>关闭应用</li>
+          </ul>
+          <p style={{ marginTop: 8, color: '#ff4d4f', fontWeight: 500 }}>
+            此操作不可恢复，请确认是否继续？
+          </p>
+        </div>
+      ),
+      okText: '确认卸载',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await window.electronAPI.uninstallApp()
+          message.success('应用已卸载')
+        } catch (error: any) {
+          message.error(`卸载失败: ${error?.message || '未知错误'}`)
+        }
+      }
+    })
   }
 
   return (
@@ -440,6 +445,25 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               <Divider style={{ margin: 0 }} />
 
               <div>
+                <Text style={{ color: themeVars.text, fontWeight: 500 }}>Claude Code 目录</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
+                  当前监控的 Claude Code 安装路径
+                </Text>
+                <Input
+                  value={claudeDir}
+                  readOnly
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    backgroundColor: themeVars.bgSection
+                  }}
+                />
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+
+              <div>
                 <Text style={{ color: themeVars.text, fontWeight: 500 }}>数据存储</Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
@@ -497,7 +521,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                 <Text style={{ color: themeVars.text, fontWeight: 500 }}>AI 提供商</Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
-                  {providerConfigs[settings.ai.provider].description}
+                  {getCurrentProviderInfo().description}
                 </Text>
                 <Select
                   value={settings.ai.provider}
@@ -547,9 +571,9 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <Text style={{ color: themeVars.text, fontWeight: 500 }}>API Key</Text>
-                  {providerConfigs[settings.ai.provider].getKeyUrl && (
+                  {getCurrentProviderInfo().getKeyUrl && (
                     <Link
-                      href={providerConfigs[settings.ai.provider].getKeyUrl}
+                      href={getCurrentProviderInfo().getKeyUrl}
                       target="_blank"
                       style={{ fontSize: '12px' }}
                     >
@@ -563,7 +587,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                     updateCurrentProviderConfig('apiKey', e.target.value)
                     setIsEditingApiKey(true)
                   }}
-                  placeholder={`请输入 ${providerConfigs[settings.ai.provider].name} API Key`}
+                  placeholder={`请输入 ${getCurrentProviderInfo().name} API Key`}
                   visibilityToggle={{
                     visible: apiKeyVisible,
                     onVisibleChange: setApiKeyVisible
@@ -625,8 +649,63 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               </div>
             </Space>
           </Card>
+
+          {/* 卡片 3: 危险操作 */}
+          <Card
+            title={
+              <Space>
+                <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                <span style={{ color: '#ff4d4f' }}>危险操作</span>
+              </Space>
+            }
+            style={{
+              backgroundColor: themeVars.bgContainer,
+              borderColor: '#ff4d4f',
+              gridColumn: '1 / -1'
+            }}
+          >
+            <Space vertical size="large" style={{ width: '100%' }}>
+              <div>
+                <Text style={{ color: themeVars.text, fontWeight: 500 }}>卸载应用</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
+                  移除应用及所有数据（此操作不可恢复）
+                </Text>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={handleUninstall}
+                  size="large"
+                  block
+                >
+                  卸载应用
+                </Button>
+              </div>
+            </Space>
+          </Card>
         </div>
       </div>
+
+      {/* 配置文件编辑器 */}
+      <ConfigFileEditor
+        title="编辑应用配置文件"
+        filePath={configPath}
+        darkMode={darkMode}
+        visible={configEditorVisible}
+        onClose={() => setConfigEditorVisible(false)}
+        onLoad={async () => {
+          const content = await window.electronAPI.readAppConfigFile()
+          return content
+        }}
+        onSave={async (content: string) => {
+          await window.electronAPI.saveAppConfigFile(content)
+          // 重新加载设置
+          await loadSettings()
+        }}
+        onOpenFolder={async () => {
+          await window.electronAPI.showConfigInFolder()
+        }}
+      />
     </div>
   )
 }

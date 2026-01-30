@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
-import { DeleteOutlined, CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
+import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'

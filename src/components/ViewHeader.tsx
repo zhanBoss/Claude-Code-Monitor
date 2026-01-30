@@ -65,8 +65,14 @@ function ViewHeader({
             <Button
               icon={<MenuOutlined />}
               onClick={onOpenDrawer}
-              size="small"
               className="drawer-trigger-btn"
+              style={{
+                minWidth: 88,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
             >
               配置
             </Button>
@@ -104,7 +110,7 @@ function ViewHeader({
               <Button
                 icon={<StarOutlined />}
                 onClick={realtimeActions.onSummarize}
-                size="small"
+                style={{ height: 36 }}
                 loading={realtimeActions.summarizing}
                 disabled={!realtimeActions.hasRecords}
                 type="primary"
@@ -115,7 +121,7 @@ function ViewHeader({
                 icon={<DeleteOutlined />}
                 danger
                 onClick={realtimeActions.onClear}
-                size="small"
+                style={{ height: 36 }}
                 disabled={!realtimeActions.hasRecords}
               >
                 清空
@@ -128,7 +134,7 @@ function ViewHeader({
               <Button
                 icon={<ReloadOutlined />}
                 onClick={historyActions.onRefresh}
-                size="small"
+                style={{ height: 36 }}
                 loading={historyActions.loading}
               >
                 刷新
@@ -136,7 +142,7 @@ function ViewHeader({
               <Button
                 icon={<ExportOutlined />}
                 onClick={historyActions.onExport}
-                size="small"
+                style={{ height: 36 }}
                 disabled={!historyActions.hasRecords}
               >
                 导出

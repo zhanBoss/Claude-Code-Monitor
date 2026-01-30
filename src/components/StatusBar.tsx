@@ -1,5 +1,5 @@
-import { Tag, Space, Button, Tooltip } from 'antd'
-import { FolderOutlined, MessageOutlined, SettingOutlined } from '@ant-design/icons'
+import { Space, Button, Tooltip } from 'antd'
+import { MessageOutlined, SettingOutlined } from '@ant-design/icons'
 import type { CSSProperties } from 'react'
 
 interface StatusBarProps {
@@ -60,42 +60,20 @@ function StatusBar({ claudeDir, onOpenSettings }: StatusBarProps) {
           </div>
         </Space>
 
-        <Space size="middle">
-          <Tooltip title="设置">
-            <Button
-              type="text"
-              icon={<SettingOutlined />}
-              onClick={onOpenSettings}
-              style={{
-                WebkitAppRegion: 'no-drag',
-                color: 'white',
-                background: 'rgba(255,255,255,0.15)',
-                borderColor: 'rgba(255,255,255,0.3)',
-                backdropFilter: 'blur(10px)'
-              } as CSSProperties}
-            />
-          </Tooltip>
-
-          <Tag
-            icon={<FolderOutlined />}
-            color="blue"
+        <Tooltip title="设置">
+          <Button
+            type="text"
+            icon={<SettingOutlined />}
+            onClick={onOpenSettings}
             style={{
+              WebkitAppRegion: 'no-drag',
+              color: 'white',
               background: 'rgba(255,255,255,0.15)',
               borderColor: 'rgba(255,255,255,0.3)',
-              color: 'white',
-              padding: '6px 12px',
-              fontSize: 12,
-              fontFamily: 'monospace',
-              backdropFilter: 'blur(10px)',
-              maxWidth: 300,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {claudeDir}
-          </Tag>
-        </Space>
+              backdropFilter: 'blur(10px)'
+            } as CSSProperties}
+          />
+        </Tooltip>
       </div>
     </div>
   )

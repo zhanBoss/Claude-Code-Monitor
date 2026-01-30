@@ -238,6 +238,7 @@ function App() {
                 onBack={() => setViewMode('realtime')}
                 darkMode={darkMode}
                 onThemeModeChange={setThemeMode}
+                claudeDir={claudeDir}
               />
             )}
           </Content>

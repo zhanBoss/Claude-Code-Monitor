@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal, Button, message, Space } from 'antd'
 import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined, CloseOutlined } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
@@ -93,18 +93,23 @@ function ConfigFileEditor({
   }
 
   // 当弹窗打开时自动加载内容
-  useState(() => {
+  useEffect(() => {
     if (visible) {
       handleLoad()
     }
-  })
+  }, [visible])
 
   return (
     <Modal
       title={
-        <Space>
-          <EditOutlined />
-          <span>{title}</span>
+        <Space direction="vertical" size={0}>
+          <Space>
+            <EditOutlined />
+            <span>{title}</span>
+          </Space>
+          {filePath && (
+            <span style={{ fontSize: 12, fontWeight: 'normal', color: '#999' }}>{filePath}</span>
+          )}
         </Space>
       }
       open={visible}

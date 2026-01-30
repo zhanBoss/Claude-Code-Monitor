@@ -193,10 +193,10 @@ ipcMain.handle('get-app-settings', async () => {
 
   // 兼容旧的单一配置结构，迁移到新的多提供商结构
   if (ai && !ai.providers) {
-    const oldProvider = ai.provider || 'groq'
-    const oldApiKey = ai.apiKey || ''
-    const oldApiBaseUrl = ai.apiBaseUrl || defaultSettings.ai.providers[oldProvider].apiBaseUrl
-    const oldModel = ai.model || defaultSettings.ai.providers[oldProvider].model
+    const oldProvider: 'groq' | 'deepseek' | 'gemini' | 'custom' = (ai.provider as any) || 'groq'
+    const oldApiKey = (ai as any).apiKey || ''
+    const oldApiBaseUrl = (ai as any).apiBaseUrl || defaultSettings.ai.providers[oldProvider].apiBaseUrl
+    const oldModel = (ai as any).model || defaultSettings.ai.providers[oldProvider].model
 
     ai = {
       enabled: ai.enabled || false,
@@ -618,11 +618,11 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
       }
     }
 
-    const provider = aiSettings.provider || 'groq'
+    const provider: 'groq' | 'deepseek' | 'gemini' | 'custom' = aiSettings.provider || 'groq'
     const currentConfig = aiSettings.providers?.[provider]
 
     if (!currentConfig || !currentConfig.apiKey) {
-      const providerNames = {
+      const providerNames: Record<'groq' | 'deepseek' | 'gemini' | 'custom', string> = {
         groq: 'Groq',
         deepseek: 'DeepSeek',
         gemini: 'Google Gemini',
@@ -865,16 +865,16 @@ ipcMain.handle('summarize-records-stream', async (event, request: { records: any
       return
     }
 
-    const provider = aiSettings.provider || 'groq'
+    const provider: 'groq' | 'deepseek' | 'gemini' | 'custom' = aiSettings.provider || 'groq'
     const currentConfig = aiSettings.providers?.[provider]
 
     if (!currentConfig || !currentConfig.apiKey) {
-      const providerNames = {
+      const providerNames: Record<'groq' | 'deepseek' | 'gemini', string> = {
         groq: 'Groq',
         deepseek: 'DeepSeek',
         gemini: 'Google Gemini'
       }
-      event.sender.send('summary-stream-error', `未配置 ${providerNames[provider] || 'AI'} API Key，请前往设置页面配置`)
+      event.sender.send('summary-stream-error', `未配置 ${providerNames[provider as 'groq' | 'deepseek' | 'gemini'] || 'AI'} API Key，请前往设置页面配置`)
       return
     }
 
@@ -944,8 +944,14 @@ ${conversations}`
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+      await response.json().catch(() => ({}))
       event.sender.send('summary-stream-error', `API 错误: ${response.status}`)
+      return
+    }
+
+    // 确保 body 是 Readable stream
+    if (!response.body || typeof response.body === 'string') {
+      event.sender.send('summary-stream-error', '响应格式错误')
       return
     }
 
@@ -1019,6 +1025,81 @@ ipcMain.handle('show-config-in-folder', async () => {
     shell.showItemInFolder(configPath)
   } catch (error) {
     console.error('显示配置文件失败:', error)
+    throw error
+  }
+})
+
+// 读取应用配置文件内容
+ipcMain.handle('read-app-config-file', async () => {
+  try {
+    const configPath = store.path
+    const content = fs.readFileSync(configPath, 'utf-8')
+    return content
+  } catch (error) {
+    console.error('读取配置文件失败:', error)
+    throw new Error('读取配置文件失败')
+  }
+})
+
+// 保存应用配置文件内容
+ipcMain.handle('save-app-config-file', async (_, content: string) => {
+  try {
+    // 验证 JSON 格式
+    const parsed = JSON.parse(content)
+
+    // 保存到文件
+    const configPath = store.path
+    fs.writeFileSync(configPath, content, 'utf-8')
+
+    // 重新加载 store
+    store.store = parsed
+  } catch (error) {
+    console.error('保存配置文件失败:', error)
+    if (error instanceof SyntaxError) {
+      throw new Error('JSON 格式错误')
+    }
+    throw new Error('保存配置文件失败')
+  }
+})
+
+// 卸载应用
+ipcMain.handle('uninstall-app', async () => {
+  try {
+    // 停止文件监控
+    if (historyWatcher) {
+      historyWatcher.close()
+      historyWatcher = null
+    }
+
+    // 获取配置文件路径
+    const configPath = store.path
+    const configDir = path.dirname(configPath)
+
+    // 删除配置文件和目录
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath)
+    }
+
+    // 删除配置目录（如果为空）
+    try {
+      if (fs.existsSync(configDir)) {
+        const files = fs.readdirSync(configDir)
+        if (files.length === 0) {
+          fs.rmdirSync(configDir)
+        }
+      }
+    } catch (err) {
+      // 忽略删除目录的错误
+    }
+
+    // 延迟退出，确保响应已发送
+    setTimeout(() => {
+      app.quit()
+    }, 500)
+
+    return { success: true }
+  } catch (error) {
+    console.error('卸载应用失败:', error)
     throw error
   }
 })

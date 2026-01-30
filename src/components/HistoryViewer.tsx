@@ -5,7 +5,8 @@ import {
   CopyOutlined,
   FileTextOutlined,
   SearchOutlined,
-  StarOutlined
+  StarOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -13,8 +14,12 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
+import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
 import ViewHeader from './ViewHeader'
+
+// 设置 dayjs 中文语言
+dayjs.locale('zh-cn')
 
 const { Text, Paragraph } = Typography
 const { RangePicker } = DatePicker
@@ -37,10 +42,17 @@ type DateRange = '1d' | '7d' | '30d' | 'custom'
 function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewerProps) {
   const [records, setRecords] = useState<ClaudeRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [dateRange, setDateRange] = useState<DateRange>('7d')
+  const [dateRange, setDateRange] = useState<DateRange>('1d')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const themeVars = getThemeVars(darkMode)
+
+  // 初始化默认日期范围（1天）
+  useEffect(() => {
+    const now = dayjs()
+    const oneDayAgo = now.subtract(1, 'day')
+    setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
+  }, [])
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -110,34 +122,15 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
 
   // 根据日期范围筛选记录
   const filteredRecords = useMemo(() => {
-    const now = Date.now()
-    let startTime: number
-
-    switch (dateRange) {
-      case '1d':
-        startTime = now - 24 * 60 * 60 * 1000
-        break
-      case '7d':
-        startTime = now - 7 * 24 * 60 * 60 * 1000
-        break
-      case '30d':
-        startTime = now - 30 * 24 * 60 * 60 * 1000
-        break
-      case 'custom':
-        if (customDateRange) {
-          const [start, end] = customDateRange
-          return records.filter(r =>
-            r.timestamp >= start.valueOf() &&
-            r.timestamp <= end.endOf('day').valueOf()
-          )
-        }
-        return records
-      default:
-        return records
+    if (customDateRange) {
+      const [start, end] = customDateRange
+      return records.filter(r =>
+        r.timestamp >= start.valueOf() &&
+        r.timestamp <= end.valueOf()
+      )
     }
-
-    return records.filter(r => r.timestamp >= startTime)
-  }, [records, dateRange, customDateRange])
+    return records
+  }, [records, customDateRange])
 
   // 搜索过滤
   const searchedRecords = useMemo(() => {
@@ -622,21 +615,36 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
               <Button
                 type={dateRange === '1d' ? 'primary' : 'default'}
                 size="small"
-                onClick={() => setDateRange('1d')}
+                onClick={() => {
+                  const now = dayjs()
+                  const oneDayAgo = now.subtract(1, 'day')
+                  setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
+                  setDateRange('1d')
+                }}
               >
                 1天
               </Button>
               <Button
                 type={dateRange === '7d' ? 'primary' : 'default'}
                 size="small"
-                onClick={() => setDateRange('7d')}
+                onClick={() => {
+                  const now = dayjs()
+                  const sevenDaysAgo = now.subtract(7, 'day')
+                  setCustomDateRange([sevenDaysAgo.startOf('day'), now.endOf('day')])
+                  setDateRange('7d')
+                }}
               >
                 7天
               </Button>
               <Button
                 type={dateRange === '30d' ? 'primary' : 'default'}
                 size="small"
-                onClick={() => setDateRange('30d')}
+                onClick={() => {
+                  const now = dayjs()
+                  const thirtyDaysAgo = now.subtract(30, 'day')
+                  setCustomDateRange([thirtyDaysAgo.startOf('day'), now.endOf('day')])
+                  setDateRange('30d')
+                }}
               >
                 30天
               </Button>
@@ -645,7 +653,8 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
                 value={customDateRange}
                 onChange={(dates) => {
                   if (dates) {
-                    setCustomDateRange(dates as [Dayjs, Dayjs])
+                    const [start, end] = dates as [Dayjs, Dayjs]
+                    setCustomDateRange([start.startOf('day'), end.endOf('day')])
                     setDateRange('custom')
                   }
                 }}
