@@ -1,15 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input, Segmented } from 'antd'
+import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input } from 'antd'
 import {
   FolderOpenOutlined,
   CopyOutlined,
-  ClockCircleOutlined,
   FileTextOutlined,
-  ReloadOutlined,
-  ExportOutlined,
   SearchOutlined,
-  StarOutlined,
-  ThunderboltOutlined
+  StarOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -18,8 +14,9 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import { getThemeVars } from '../theme'
+import ViewHeader from './ViewHeader'
 
-const { Title, Text, Paragraph } = Typography
+const { Text, Paragraph } = Typography
 const { RangePicker } = DatePicker
 
 interface HistoryViewerProps {
@@ -581,78 +578,34 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
       background: themeVars.bgContainer,
       minHeight: 0
     }}>
-      {/* 顶部标题栏 */}
-      <div style={{
-        padding: '16px',
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        background: themeVars.bgSection,
-        flexShrink: 0
-      }}>
-        {/* 第一行：视图切换 */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-          flexWrap: 'wrap',
-          gap: 12
-        }}>
-          <Segmented
-            value="history"
-            onChange={(value) => {
-              if (value === 'realtime') {
-                onToggleView()
-              }
-            }}
-            options={[
-              {
-                label: (
-                  <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ThunderboltOutlined />
-                    <span>实时对话</span>
-                  </div>
-                ),
-                value: 'realtime'
-              },
-              {
-                label: (
-                  <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ClockCircleOutlined />
-                    <span>历史记录</span>
-                  </div>
-                ),
-                value: 'history'
-              }
-            ]}
-          />
-          <Space wrap>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={loadHistory}
-              size="small"
-              loading={loading}
-            >
-              刷新
-            </Button>
-            <Button
-              icon={<ExportOutlined />}
-              onClick={handleExport}
-              size="small"
-              disabled={groupedRecords.length === 0}
-            >
-              导出
-            </Button>
-          </Space>
-        </div>
+      <ViewHeader
+        currentView="history"
+        onViewChange={(view) => {
+          if (view === 'realtime') {
+            onToggleView()
+          }
+        }}
+        showDrawerButton={true}
+        darkMode={darkMode}
+        historyActions={{
+          onRefresh: loadHistory,
+          onExport: handleExport,
+          loading: loading,
+          hasRecords: groupedRecords.length > 0
+        }}
+      />
 
-        {/* 第二行：统计信息 */}
-        <div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
-            {searchKeyword && ` (搜索"${searchKeyword}")`}
-            {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
-          </Text>
-        </div>
+      {/* 统计信息 */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgContainer
+      }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
+          {searchKeyword && ` (搜索"${searchKeyword}")`}
+          {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
+        </Text>
       </div>
 
       {/* 内容区域 */}

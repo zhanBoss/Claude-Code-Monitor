@@ -73,6 +73,10 @@ export interface ElectronAPI {
   openConfigFile: () => Promise<void>
   // 在文件管理器中显示配置文件
   showConfigInFolder: () => Promise<void>
+  // 读取应用配置文件内容
+  readAppConfigFile: () => Promise<string>
+  // 保存应用配置文件内容
+  saveAppConfigFile: (content: string) => Promise<void>
 }
 
 // AI 总结请求参数

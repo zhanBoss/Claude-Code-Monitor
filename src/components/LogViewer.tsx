@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Segmented } from 'antd'
-import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, StarOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
+import { DeleteOutlined, CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
+import ViewHeader from './ViewHeader'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 interface LogViewerProps {
   records: ClaudeRecord[]
@@ -377,90 +378,33 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
       background: themeVars.bgContainer,
       minHeight: 0
     }}>
-      <div style={{
-        padding: '16px',
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        background: themeVars.bgSection,
-        flexShrink: 0
-      }}>
-        {/* 第一行：视图切换 */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-          flexWrap: 'wrap',
-          gap: 12
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {showDrawerButton && (
-              <Button
-                icon={<MenuOutlined />}
-                onClick={onOpenDrawer}
-                size="small"
-                className="drawer-trigger-btn"
-              >
-                配置
-              </Button>
-            )}
-            <Segmented
-              value="realtime"
-              onChange={(value) => {
-                if (value === 'history') {
-                  onToggleView()
-                }
-              }}
-              options={[
-                {
-                  label: (
-                    <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <ThunderboltOutlined />
-                      <span>实时对话</span>
-                    </div>
-                  ),
-                  value: 'realtime'
-                },
-                {
-                  label: (
-                    <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <ClockCircleOutlined />
-                      <span>历史记录</span>
-                    </div>
-                  ),
-                  value: 'history'
-                }
-              ]}
-            />
-          </div>
-          <Space wrap>
-            <Button
-              icon={<StarOutlined />}
-              onClick={handleSummarizeCurrentLogs}
-              size="small"
-              loading={summarizing}
-              disabled={records.length === 0}
-              type="primary"
-            >
-              AI 总结
-            </Button>
-            <Button
-              icon={<DeleteOutlined />}
-              danger
-              onClick={onClear}
-              size="small"
-              disabled={records.length === 0}
-            >
-              清空
-            </Button>
-          </Space>
-        </div>
+      <ViewHeader
+        currentView="realtime"
+        onViewChange={(view) => {
+          if (view === 'history') {
+            onToggleView()
+          }
+        }}
+        showDrawerButton={showDrawerButton}
+        onOpenDrawer={onOpenDrawer}
+        darkMode={darkMode}
+        realtimeActions={{
+          onSummarize: handleSummarizeCurrentLogs,
+          onClear: onClear,
+          summarizing: summarizing,
+          hasRecords: records.length > 0
+        }}
+      />
 
-        {/* 第二行：统计信息 */}
-        <div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            共 {groupedRecords.length} 个会话，{records.length} 条记录
-          </Text>
-        </div>
+      {/* 统计信息 */}
+      <div style={{
+        padding: '12px 16px',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgContainer
+      }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          共 {groupedRecords.length} 个会话，{records.length} 条记录
+        </Text>
       </div>
 
       <div style={{
