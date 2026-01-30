@@ -212,7 +212,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
               maxWidth: '100%',
               height: 'auto',
               borderRadius: 4,
-              border: '1px solid #d9d9d9'
+              border: `1px solid ${themeVars.border}`
             }}
           />
         </div>
@@ -364,7 +364,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
                             </Button>
                           }
                         >
-                          <div style={{ fontSize: 13, color: '#333' }}>
+                          <div style={{ fontSize: 13, color: themeVars.text }}>
                             {renderContent(record.display)}
                           </div>
                         </Card>

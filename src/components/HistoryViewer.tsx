@@ -266,7 +266,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
             maxWidth: '100%',
             height: 'auto',
             borderRadius: 4,
-            border: '1px solid #d9d9d9',
+            border: `1px solid ${themeVars.border}`,
             marginTop: 8
           }}
         />
@@ -597,7 +597,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
                         </Space>
                       }
                       extra={
-                        <ClockCircleOutlined style={{ color: '#999' }} />
+                        <ClockCircleOutlined style={{ color: themeVars.textTertiary }} />
                       }
                     >
                       <Space direction="vertical" size="small" style={{ width: '100%' }}>
@@ -733,7 +733,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
                   >
                     <Paragraph
                       ellipsis={{ rows: 2 }}
-                      style={{ margin: 0, fontSize: 13, color: '#666' }}
+                      style={{ margin: 0, fontSize: 13, color: themeVars.textSecondary }}
                     >
                       {searchKeyword ? (
                         <Highlighter
@@ -741,7 +741,8 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
                           autoEscape
                           textToHighlight={record.display}
                           highlightStyle={{
-                            backgroundColor: '#ffc069',
+                            backgroundColor: darkMode ? '#d48806' : '#ffc069',
+                            color: darkMode ? '#fff' : '#000',
                             padding: 0,
                           }}
                         />
@@ -795,7 +796,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
         {selectedRecord && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             {/* Record 元信息 */}
-            <Card size="small" bodyStyle={{ background: '#fafafa' }}>
+            <Card size="small" bodyStyle={{ background: themeVars.bgSection }}>
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>时间：</Text>
@@ -810,14 +811,15 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
 
             {/* Record 内容 */}
             <Card size="small" title="对话内容">
-              <div style={{ fontSize: 13, color: '#333' }}>
+              <div style={{ fontSize: 13, color: themeVars.text }}>
                 {searchKeyword ? (
                   <Highlighter
                     searchWords={[searchKeyword]}
                     autoEscape
                     textToHighlight={selectedRecord.display}
                     highlightStyle={{
-                      backgroundColor: '#ffc069',
+                      backgroundColor: darkMode ? '#d48806' : '#ffc069',
+                      color: darkMode ? '#fff' : '#000',
                       padding: '2px 4px',
                       borderRadius: 2,
                     }}

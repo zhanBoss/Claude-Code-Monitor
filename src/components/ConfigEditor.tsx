@@ -126,7 +126,7 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
           <Space direction="vertical" size="small" style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Space>
-                <CodeOutlined style={{ fontSize: 20, color: '#667eea' }} />
+                <CodeOutlined style={{ fontSize: 20, color: darkMode ? '#8b9eff' : '#667eea' }} />
                 <div>
                   <Text strong>settings.json</Text>
                   <br />

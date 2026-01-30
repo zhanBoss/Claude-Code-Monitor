@@ -54,15 +54,15 @@ export const darkTheme: ThemeConfig = {
   algorithm: antdTheme.darkAlgorithm,
   token: {
     ...lightTheme.token,
-    // 暗色模式特定配置
+    // 暗色模式特定配置 - 提高对比度
     colorBgContainer: '#1f1f1f',
     colorBgElevated: '#262626',
     colorBgLayout: '#141414',
     colorBorder: '#434343',
     colorBorderSecondary: '#303030',
-    colorText: '#e8e8e8',
-    colorTextSecondary: '#a6a6a6',
-    colorTextTertiary: '#737373',
+    colorText: '#f0f0f0',           // 提高主文字对比度
+    colorTextSecondary: '#b8b8b8',  // 提高次级文字对比度
+    colorTextTertiary: '#8c8c8c',   // 提高三级文字对比度
   },
   components: {
     ...lightTheme.components,
@@ -95,9 +95,9 @@ export const getThemeVars = (isDark: boolean) => ({
   bgSection: isDark ? '#1a1a1a' : '#fafafa',
   border: isDark ? '#434343' : '#d9d9d9',
   borderSecondary: isDark ? '#303030' : '#f0f0f0',
-  text: isDark ? '#e8e8e8' : '#333333',
-  textSecondary: isDark ? '#a6a6a6' : '#666666',
-  textTertiary: isDark ? '#737373' : '#999999',
+  text: isDark ? '#f0f0f0' : '#333333',           // 提高主文字对比度
+  textSecondary: isDark ? '#b8b8b8' : '#666666',  // 提高次级文字对比度
+  textTertiary: isDark ? '#8c8c8c' : '#999999',   // 提高三级文字对比度
   codeBg: isDark ? '#2a2a2a' : '#f5f5f5',
   hoverBg: isDark ? '#2a2a2a' : '#f5f5f5',
 })
