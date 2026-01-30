@@ -150,7 +150,7 @@ ipcMain.handle('save-record-config', async (_, config: { enabled: boolean; saveP
 // 获取应用设置
 ipcMain.handle('get-app-settings', async () => {
   const defaultSettings = {
-    darkMode: false,
+    themeMode: 'system' as 'light' | 'dark' | 'system',
     autoStart: false,
     ai: {
       enabled: false,
@@ -161,18 +161,28 @@ ipcMain.handle('get-app-settings', async () => {
     }
   }
 
-  const darkMode = store.get('darkMode', defaultSettings.darkMode) as boolean
+  // 兼容旧的 darkMode 设置，迁移到 themeMode
+  const oldDarkMode = store.get('darkMode', null)
+  if (oldDarkMode !== null && !store.has('themeMode')) {
+    store.set('themeMode', oldDarkMode ? 'dark' : 'light')
+    store.delete('darkMode')
+  }
+
+  const themeMode = store.get('themeMode', defaultSettings.themeMode) as 'light' | 'dark' | 'system'
   const autoStart = store.get('autoStart', defaultSettings.autoStart) as boolean
   const ai = store.get('ai', defaultSettings.ai) as any
 
-  return { darkMode, autoStart, ai }
+  return { themeMode, autoStart, ai }
 })
 
 // 保存应用设置
-ipcMain.handle('save-app-settings', async (_, settings: { darkMode: boolean; autoStart: boolean }) => {
+ipcMain.handle('save-app-settings', async (_, settings: { themeMode: 'light' | 'dark' | 'system'; autoStart: boolean; ai: any }) => {
   try {
-    store.set('darkMode', settings.darkMode)
+    store.set('themeMode', settings.themeMode)
     store.set('autoStart', settings.autoStart)
+    if (settings.ai) {
+      store.set('ai', settings.ai)
+    }
 
     // 设置开机自启
     app.setLoginItemSettings({
@@ -558,19 +568,15 @@ ipcMain.handle('export-records', async (_, options: any) => {
 ipcMain.handle('summarize-records', async (_, request: { records: any[], type: 'brief' | 'detailed' }) => {
   try {
     // 获取 AI 设置
-    const defaultSettings = {
-      darkMode: false,
-      autoStart: false,
-      ai: {
-        enabled: false,
-        provider: 'deepseek' as const,
-        apiKey: '',
-        apiBaseUrl: 'https://api.deepseek.com/v1',
-        model: 'deepseek-chat'
-      }
+    const defaultAiSettings = {
+      enabled: false,
+      provider: 'deepseek' as const,
+      apiKey: '',
+      apiBaseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat'
     }
 
-    const aiSettings = store.get('ai', defaultSettings.ai) as any
+    const aiSettings = store.get('ai', defaultAiSettings) as any
 
     if (!aiSettings.enabled || !aiSettings.apiKey) {
       return {

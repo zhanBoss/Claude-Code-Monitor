@@ -23,6 +23,7 @@ const { RangePicker } = DatePicker
 
 interface HistoryViewerProps {
   onToggleView: () => void
+  onOpenSettings?: () => void
   darkMode: boolean
 }
 
@@ -35,7 +36,7 @@ interface GroupedRecord {
 
 type DateRange = '1d' | '7d' | '30d' | 'custom'
 
-function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
+function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewerProps) {
   const [records, setRecords] = useState<ClaudeRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange>('7d')
@@ -272,8 +273,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
           okText: '去设置',
           cancelText: '取消',
           onOk: () => {
-            // 切换到设置页面
-            onToggleView()
+            onOpenSettings?.()
           }
         })
         return

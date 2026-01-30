@@ -21,7 +21,7 @@ export interface AISettings {
 }
 
 export interface AppSettings {
-  darkMode: boolean
+  themeMode: 'light' | 'dark' | 'system'
   autoStart: boolean
   ai: AISettings
 }

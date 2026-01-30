@@ -4,12 +4,10 @@ import type { CSSProperties } from 'react'
 
 interface StatusBarProps {
   claudeDir: string
-  darkMode: boolean
-  onThemeToggle: () => void
   onOpenSettings: () => void
 }
 
-function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: StatusBarProps) {
+function StatusBar({ claudeDir, onOpenSettings }: StatusBarProps) {
   return (
     <div
       style={{
@@ -76,79 +74,6 @@ function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: Statu
                 backdropFilter: 'blur(10px)'
               } as CSSProperties}
             />
-          </Tooltip>
-
-          <Tooltip title={darkMode ? '切换到亮色模式' : '切换到暗色模式'}>
-            <button
-              onClick={onThemeToggle}
-              aria-label={darkMode ? '切换到亮色模式' : '切换到暗色模式'}
-              style={{
-                WebkitAppRegion: 'no-drag',
-                position: 'relative',
-                width: 56,
-                height: 28,
-                background: darkMode
-                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%)'
-                  : 'linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(251, 146, 60, 0.2) 100%)',
-                border: `2px solid ${darkMode ? 'rgba(147, 197, 253, 0.4)' : 'rgba(252, 211, 77, 0.4)'}`,
-                borderRadius: 14,
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)',
-                padding: 0,
-                outline: 'none',
-                boxShadow: darkMode
-                  ? '0 0 12px rgba(59, 130, 246, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-                  : '0 0 12px rgba(251, 191, 36, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-              } as CSSProperties}
-              onMouseEnter={(e) => {
-                const target = e.currentTarget
-                target.style.transform = 'scale(1.05)'
-                target.style.boxShadow = darkMode
-                  ? '0 0 20px rgba(59, 130, 246, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-                  : '0 0 20px rgba(251, 191, 36, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-              }}
-              onMouseLeave={(e) => {
-                const target = e.currentTarget
-                target.style.transform = 'scale(1)'
-                target.style.boxShadow = darkMode
-                  ? '0 0 12px rgba(59, 130, 246, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-                  : '0 0 12px rgba(251, 191, 36, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1)'
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = '3px solid rgba(255, 255, 255, 0.6)'
-                e.currentTarget.style.outlineOffset = '2px'
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = 'none'
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  left: darkMode ? 'calc(100% - 26px)' : '2px',
-                  width: 20,
-                  height: 20,
-                  background: darkMode
-                    ? 'linear-gradient(135deg, #3B82F6 0%, #9333EA 100%)'
-                    : 'linear-gradient(135deg, #FCD34D 0%, #FB923C 100%)',
-                  borderRadius: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: darkMode
-                    ? '0 2px 8px rgba(59, 130, 246, 0.6), 0 0 16px rgba(147, 51, 234, 0.4)'
-                    : '0 2px 8px rgba(251, 191, 36, 0.6), 0 0 16px rgba(251, 146, 60, 0.4)',
-                  fontSize: 11,
-                  color: 'white',
-                  fontWeight: 600
-                }}
-              >
-                {darkMode ? '🌙' : '☀️'}
-              </div>
-            </button>
           </Tooltip>
 
           <Tag

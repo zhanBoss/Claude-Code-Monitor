@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Layout, Result, Button, ConfigProvider, Drawer } from 'antd'
-import { WarningOutlined } from '@ant-design/icons'
+import { Layout, Result, Button, ConfigProvider, Drawer, Spin } from 'antd'
+import { WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import StatusBar from './components/StatusBar'
 import ConfigEditor from './components/ConfigEditor'
@@ -18,12 +18,39 @@ type ViewMode = 'realtime' | 'history' | 'settings'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
+  const [isCheckingClaude, setIsCheckingClaude] = useState<boolean>(true)
   const [claudeDir, setClaudeDir] = useState<string>('')
   const [records, setRecords] = useState<ClaudeRecord[]>([])
   const [viewMode, setViewMode] = useState<ViewMode>('realtime')
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false)
   const [siderCollapsed, setSiderCollapsed] = useState<boolean>(false)
   const [darkMode, setDarkMode] = useState<boolean>(false)
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system')
+
+  // 检测系统主题
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+    const updateDarkMode = () => {
+      if (themeMode === 'system') {
+        setDarkMode(mediaQuery.matches)
+      } else {
+        setDarkMode(themeMode === 'dark')
+      }
+    }
+
+    updateDarkMode()
+
+    // 监听系统主题变化
+    const handler = () => {
+      if (themeMode === 'system') {
+        setDarkMode(mediaQuery.matches)
+      }
+    }
+    mediaQuery.addEventListener('change', handler)
+
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [themeMode])
 
   useEffect(() => {
     // 检查 Claude Code 是否安装
@@ -32,11 +59,12 @@ function App() {
       if (result.claudeDir) {
         setClaudeDir(result.claudeDir)
       }
+      setIsCheckingClaude(false)
     })
 
     // 加载应用设置
     window.electronAPI.getAppSettings().then(settings => {
-      setDarkMode(settings.darkMode)
+      setThemeMode(settings.themeMode)
     })
 
     // 监听新记录
@@ -55,6 +83,35 @@ function App() {
     }
   }, [siderCollapsed, drawerVisible])
 
+  // 检测中显示加载状态
+  if (isCheckingClaude) {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: '24px',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+      }}>
+        <Spin
+          indicator={<LoadingOutlined style={{ fontSize: 48, color: '#667eea' }} spin />}
+          size="large"
+        />
+        <div style={{
+          fontSize: 16,
+          color: '#667eea',
+          fontWeight: 500,
+          letterSpacing: '0.5px'
+        }}>
+          检测 Claude Code 中...
+        </div>
+      </div>
+    )
+  }
+
+  // 未安装 Claude Code
   if (!isClaudeInstalled) {
     return (
       <div style={{
@@ -101,27 +158,14 @@ function App() {
     setViewMode(prev => prev === 'realtime' ? 'history' : 'realtime')
   }
 
-  const handleThemeToggle = async () => {
-    const newDarkMode = !darkMode
-    setDarkMode(newDarkMode)
-
-    // 保存到设置
-    const settings = await window.electronAPI.getAppSettings()
-    await window.electronAPI.saveAppSettings({
-      ...settings,
-      darkMode: newDarkMode
-    })
-  }
 
   const themeVars = getThemeVars(darkMode)
 
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
-      <Layout style={{ height: '100vh', minHeight: 600 }}>
+      <Layout style={{ height: '100vh' }}>
         <StatusBar
           claudeDir={claudeDir}
-          darkMode={darkMode}
-          onThemeToggle={handleThemeToggle}
           onOpenSettings={() => setViewMode('settings')}
         />
 
@@ -179,15 +223,21 @@ function App() {
                 onClear={handleClearRecords}
                 onToggleView={handleToggleView}
                 onOpenDrawer={() => setDrawerVisible(true)}
+                onOpenSettings={() => setViewMode('settings')}
                 showDrawerButton={siderCollapsed && !drawerVisible}
                 darkMode={darkMode}
               />
             ) : viewMode === 'history' ? (
-              <HistoryViewer onToggleView={handleToggleView} darkMode={darkMode} />
+              <HistoryViewer
+                onToggleView={handleToggleView}
+                onOpenSettings={() => setViewMode('settings')}
+                darkMode={darkMode}
+              />
             ) : (
               <SettingsView
                 onBack={() => setViewMode('realtime')}
                 darkMode={darkMode}
+                onThemeModeChange={setThemeMode}
               />
             )}
           </Content>

@@ -14,6 +14,7 @@ interface LogViewerProps {
   onClear: () => void
   onToggleView: () => void
   onOpenDrawer: () => void
+  onOpenSettings?: () => void
   showDrawerButton?: boolean
   darkMode: boolean
 }
@@ -25,7 +26,7 @@ interface GroupedRecord {
   latestTimestamp: number
 }
 
-function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerButton = true, darkMode }: LogViewerProps) {
+function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSettings, showDrawerButton = true, darkMode }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
@@ -224,7 +225,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           okText: '去设置',
           cancelText: '取消',
           onOk: () => {
-            message.info('请点击右上角设置按钮配置 AI 功能')
+            onOpenSettings?.()
           }
         })
         return
@@ -237,7 +238,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           okText: '去设置',
           cancelText: '取消',
           onOk: () => {
-            message.info('请点击右上角设置按钮配置 API Key')
+            onOpenSettings?.()
           }
         })
         return
