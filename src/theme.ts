@@ -79,7 +79,7 @@ export const darkTheme: ThemeConfig = {
     Modal: {
       ...lightTheme.components?.Modal,
       contentBg: '#1f1f1f',
-      headerBg: '#262626',
+      headerBg: '#1f1f1f',  // 与 contentBg 保持一致，避免颜色割裂
     },
   },
 }
