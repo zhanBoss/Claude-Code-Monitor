@@ -7,7 +7,8 @@ import {
   FileTextOutlined,
   ReloadOutlined,
   ExportOutlined,
-  SearchOutlined
+  SearchOutlined,
+  SparklesOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -53,6 +54,11 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
   // 层级 3: Record 详情弹窗
   const [selectedRecord, setSelectedRecord] = useState<ClaudeRecord | null>(null)
   const [recordModalVisible, setRecordModalVisible] = useState(false)
+
+  // AI 总结相关状态
+  const [summarizing, setSummarizing] = useState(false)
+  const [summaryContent, setSummaryContent] = useState<string>('')
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false)
 
   // Session Modal 关闭处理
   const handleCloseSessionModal = () => {
@@ -251,6 +257,56 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
   const truncateText = (text: string, maxLength: number = 100) => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
+  }
+
+  // 处理 AI 总结
+  const handleSummarize = async (session: GroupedRecord) => {
+    try {
+      // 检查 AI 配置
+      const config = await window.electronAPI.getConfig()
+
+      if (!config.ai?.enabled || !config.ai?.apiKey) {
+        Modal.confirm({
+          title: 'AI 总结功能需要配置',
+          content: '使用 AI 总结功能需要先配置 API Key，是否前往设置？',
+          okText: '去设置',
+          cancelText: '取消',
+          onOk: () => {
+            // 切换到设置页面
+            onToggleView()
+          }
+        })
+        return
+      }
+
+      setSummarizing(true)
+
+      const result = await window.electronAPI.summarizeRecords({
+        records: session.records,
+        type: 'detailed'
+      })
+
+      if (result.success && result.summary) {
+        setSummaryContent(result.summary)
+        setSummaryModalVisible(true)
+      } else {
+        message.error(`总结失败: ${result.error || '未知错误'}`)
+      }
+    } catch (error: any) {
+      message.error(`总结失败: ${error?.message || '未知错误'}`)
+    } finally {
+      setSummarizing(false)
+    }
+  }
+
+  // 复制总结内容
+  const handleCopySummary = async () => {
+    try {
+      await window.electronAPI.copyToClipboard(summaryContent)
+      message.success('已复制到剪贴板')
+    } catch (error) {
+      message.error('复制失败')
+    }
   }
 
   const renderPastedContent = (content: any) => {
@@ -598,6 +654,21 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
                       extra={
                         <ClockCircleOutlined style={{ color: themeVars.textTertiary }} />
                       }
+                      actions={[
+                        <Button
+                          key="summarize"
+                          type="text"
+                          size="small"
+                          icon={<SparklesOutlined />}
+                          loading={summarizing}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSummarize(group)
+                          }}
+                        >
+                          AI 总结
+                        </Button>
+                      ]}
                     >
                       <Space direction="vertical" size="small" style={{ width: '100%' }}>
                         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -836,6 +907,33 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
             )}
           </Space>
         )}
+      </Modal>
+
+      {/* AI 总结结果弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <SparklesOutlined style={{ color: '#667eea' }} />
+            <Text>AI 总结</Text>
+          </Space>
+        }
+        open={summaryModalVisible}
+        onCancel={() => setSummaryModalVisible(false)}
+        width="60%"
+        footer={[
+          <Button key="copy" icon={<CopyOutlined />} onClick={handleCopySummary}>
+            复制总结
+          </Button>,
+          <Button key="close" type="primary" onClick={() => setSummaryModalVisible(false)}>
+            关闭
+          </Button>
+        ]}
+        style={{ top: 60 }}
+        bodyStyle={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}
+      >
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+          {renderMarkdown(summaryContent)}
+        </div>
       </Modal>
     </div>
   )
