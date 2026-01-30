@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Card, Switch, Input, Button, Typography, Space, Divider, Tag } from 'antd'
+import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message } from 'antd'
 import {
   ArrowLeftOutlined,
   SaveOutlined,
   BulbOutlined,
   RobotOutlined,
-  ClockCircleOutlined,
   LinkOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
@@ -30,7 +29,7 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
       model: 'deepseek-chat'
     }
   })
-  const [loading, setLoading] = useState(false)
+  const [apiKeySaving, setApiKeySaving] = useState(false)
   const [apiKeyVisible, setApiKeyVisible] = useState(false)
 
   const themeVars = getThemeVars(darkMode)
@@ -48,19 +47,32 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
     }
   }
 
-  const handleSave = async () => {
-    setLoading(true)
+  // 即时保存设置（不包括 API Key）
+  const saveSettingsImmediately = async (newSettings: AppSettings) => {
+    try {
+      await window.electronAPI.saveAppSettings(newSettings)
+    } catch (error) {
+      console.error('保存设置失败:', error)
+      message.error('保存设置失败')
+    }
+  }
+
+  // 保存 API Key
+  const handleSaveApiKey = async () => {
+    setApiKeySaving(true)
     try {
       const result = await window.electronAPI.saveAppSettings(settings)
       if (result.success) {
-        onBack()
+        message.success('API Key 保存成功')
       } else {
-        console.error('保存设置失败:', result.error)
+        console.error('保存 API Key 失败:', result.error)
+        message.error('保存 API Key 失败')
       }
     } catch (error) {
-      console.error('保存设置失败:', error)
+      console.error('保存 API Key 失败:', error)
+      message.error('保存 API Key 失败')
     } finally {
-      setLoading(false)
+      setApiKeySaving(false)
     }
   }
 
@@ -68,13 +80,19 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
     key: K,
     value: AppSettings['ai'][K]
   ) => {
-    setSettings(prev => ({
-      ...prev,
+    const newSettings = {
+      ...settings,
       ai: {
-        ...prev.ai,
+        ...settings.ai,
         [key]: value
       }
-    }))
+    }
+    setSettings(newSettings)
+
+    // API Key 不即时保存，其他设置即时保存
+    if (key !== 'apiKey') {
+      saveSettingsImmediately(newSettings)
+    }
   }
 
   return (
@@ -105,14 +123,6 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
             设置
           </Title>
         </Space>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          onClick={handleSave}
-          loading={loading}
-        >
-          保存设置
-        </Button>
       </div>
 
       {/* 内容区域 */}
@@ -141,7 +151,7 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
               borderColor: themeVars.border
             }}
           >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space vertical size="large" style={{ width: '100%' }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -156,7 +166,11 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
                 </div>
                 <Switch
                   checked={settings.darkMode}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, darkMode: checked }))}
+                  onChange={(checked) => {
+                    const newSettings = { ...settings, darkMode: checked }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
                 />
               </div>
 
@@ -176,7 +190,11 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
                 </div>
                 <Switch
                   checked={settings.autoStart}
-                  onChange={(checked) => setSettings(prev => ({ ...prev, autoStart: checked }))}
+                  onChange={(checked) => {
+                    const newSettings = { ...settings, autoStart: checked }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
                 />
               </div>
             </Space>
@@ -198,7 +216,7 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
               borderColor: themeVars.border
             }}
           >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space vertical size="large" style={{ width: '100%' }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -239,16 +257,27 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
                     获取 API Key <LinkOutlined />
                   </Link>
                 </div>
-                <Input.Password
-                  value={settings.ai.apiKey}
-                  onChange={(e) => updateAISetting('apiKey', e.target.value)}
-                  placeholder="请输入 DeepSeek API Key"
-                  visibilityToggle={{
-                    visible: apiKeyVisible,
-                    onVisibleChange: setApiKeyVisible
-                  }}
-                />
-                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary }}>
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input.Password
+                    value={settings.ai.apiKey}
+                    onChange={(e) => updateAISetting('apiKey', e.target.value)}
+                    placeholder="请输入 DeepSeek API Key"
+                    visibilityToggle={{
+                      visible: apiKeyVisible,
+                      onVisibleChange: setApiKeyVisible
+                    }}
+                    onPressEnter={handleSaveApiKey}
+                  />
+                  <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    onClick={handleSaveApiKey}
+                    loading={apiKeySaving}
+                  >
+                    保存
+                  </Button>
+                </Space.Compact>
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, display: 'block', marginTop: '4px' }}>
                   你的 API Key 将加密存储在本地
                 </Text>
               </div>
@@ -273,29 +302,6 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
                 />
               </div>
             </Space>
-          </Card>
-
-          {/* 卡片 3: 记录设置（预留） */}
-          <Card
-            title={
-              <Space>
-                <ClockCircleOutlined style={{ color: '#667eea' }} />
-                <span>记录设置</span>
-              </Space>
-            }
-            style={{
-              backgroundColor: themeVars.bgContainer,
-              borderColor: themeVars.border
-            }}
-          >
-            <div style={{
-              padding: '40px 0',
-              textAlign: 'center'
-            }}>
-              <Text type="secondary" style={{ color: themeVars.textSecondary }}>
-                记录相关设置将在后续版本中添加
-              </Text>
-            </div>
           </Card>
         </div>
       </div>

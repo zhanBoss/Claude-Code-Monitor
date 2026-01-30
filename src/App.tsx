@@ -199,7 +199,7 @@ function App() {
           placement="left"
           onClose={() => setDrawerVisible(false)}
           open={drawerVisible}
-          width={400}
+          size={400}
           closable={false}
           styles={{
             header: {

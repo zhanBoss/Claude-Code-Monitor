@@ -89,7 +89,7 @@ function RecordControl({ darkMode }: RecordControlProps) {
   }
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Space vertical size="middle" style={{ width: '100%' }}>
       <Title level={4} style={{ margin: 0 }}>对话记录控制</Title>
 
       <Card size="small">
@@ -145,8 +145,8 @@ function RecordControl({ darkMode }: RecordControlProps) {
         </Card>
       )}
 
-      <Card bodyStyle={{ padding: 12, background: themeVars.bgSection }}>
-        <Space direction="vertical" size={4}>
+      <Card styles={{ body: { padding: 12, background: themeVars.bgSection } }}>
+        <Space vertical size={4}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             💡 开启后将自动记录所有 Claude Code 对话
           </Text>

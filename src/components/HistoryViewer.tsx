@@ -576,7 +576,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
       }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* 时间筛选器 */}
-          <Card size="small" bodyStyle={{ padding: 12 }}>
+          <Card size="small" styles={{ body: { padding: 12 } }}>
             <Space wrap>
               <Button
                 type={dateRange === '1d' ? 'primary' : 'default'}
@@ -613,7 +613,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
           </Card>
 
           {/* 搜索框 */}
-          <Card size="small" bodyStyle={{ padding: 12 }}>
+          <Card size="small" styles={{ body: { padding: 12 } }}>
             <Input
               placeholder="搜索对话内容、项目名称..."
               prefix={<SearchOutlined />}
@@ -732,21 +732,22 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
         closable={true}
         maskClosable={true}
         keyboard={true}
-        destroyOnClose={false}
         width="70%"
         footer={null}
         style={{ top: 40 }}
-        bodyStyle={{
-          maxHeight: 'calc(100vh - 220px)',
-          overflowY: 'auto',
-          padding: '24px 24px 24px 24px'
+        styles={{
+          body: {
+            maxHeight: 'calc(100vh - 220px)',
+            overflowY: 'auto',
+            padding: '24px 24px 24px 24px'
+          }
         }}
         zIndex={1001}
       >
         {selectedSession && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             {/* Session 信息 */}
-            <Card size="small" bodyStyle={{ padding: 12 }}>
+            <Card size="small" styles={{ body: { padding: 12 } }}>
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>项目名称：</Text>
@@ -837,7 +838,6 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
         closable={true}
         maskClosable={true}
         keyboard={true}
-        destroyOnClose={false}
         width="60%"
         footer={[
           <Button
@@ -852,13 +852,13 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
           </Button>
         ]}
         style={{ top: 60 }}
-        bodyStyle={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}
+        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
         zIndex={1002}
       >
         {selectedRecord && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             {/* Record 元信息 */}
-            <Card size="small" bodyStyle={{ background: themeVars.bgSection }}>
+            <Card size="small" styles={{ body: { background: themeVars.bgSection } }}>
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>时间：</Text>
@@ -929,7 +929,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
           </Button>
         ]}
         style={{ top: 60 }}
-        bodyStyle={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}
+        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           {renderMarkdown(summaryContent)}

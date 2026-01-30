@@ -403,7 +403,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
             style={{ marginTop: 100 }}
           />
         ) : (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space vertical size="middle" style={{ width: '100%' }}>
             {groupedRecords.map((group, groupIndex) => {
               const isExpanded = expandedSessions.has(group.sessionId)
               const showCollapse = group.records.length > 3
@@ -430,12 +430,12 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
                     </Text>
                   }
                 >
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                  <Space vertical size="small" style={{ width: '100%' }}>
                     {displayRecords.map((record, recordIndex) => (
                       <div key={recordIndex}>
                         <Card
                           size="small"
-                          bodyStyle={{ position: 'relative' }}
+                          styles={{ body: { position: 'relative' } }}
                           extra={
                             <Button
                               type="text"
@@ -520,7 +520,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           </Button>
         ]}
         style={{ top: 60 }}
-        bodyStyle={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}
+        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           <ReactMarkdown

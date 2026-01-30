@@ -105,7 +105,7 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
 
   return (
     <>
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space vertical size="middle" style={{ width: '100%' }}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -121,9 +121,9 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
           hoverable
           onClick={handleOpenModal}
           style={{ cursor: 'pointer' }}
-          bodyStyle={{ padding: 16 }}
+          styles={{ body: { padding: 16 } }}
         >
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space vertical size="small" style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Space>
                 <CodeOutlined style={{ fontSize: 20, color: darkMode ? '#8b9eff' : '#667eea' }} />
@@ -210,7 +210,7 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
           </Button>
         ]}
         style={{ top: 40 }}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <div style={{ height: 500, border: `1px solid ${themeVars.border}` }}>
           <Editor
