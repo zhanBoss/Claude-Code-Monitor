@@ -9,7 +9,8 @@ import {
   SunOutlined,
   MoonOutlined,
   LaptopOutlined,
-  FolderOpenOutlined
+  FolderOpenOutlined,
+  EditOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
@@ -71,6 +72,35 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
             <p style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
               你的 API Key 等设置都加密存储在这个文件中
             </p>
+            <Space style={{ marginTop: 16 }} size="middle">
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={async () => {
+                  try {
+                    await window.electronAPI.openConfigFile()
+                    message.success('已在默认编辑器中打开配置文件')
+                  } catch (error) {
+                    message.error('打开配置文件失败')
+                  }
+                }}
+              >
+                编辑配置文件
+              </Button>
+              <Button
+                icon={<FolderOpenOutlined />}
+                onClick={async () => {
+                  try {
+                    await window.electronAPI.showConfigInFolder()
+                    message.success('已在文件管理器中显示')
+                  } catch (error) {
+                    message.error('打开文件夹失败')
+                  }
+                }}
+              >
+                打开文件位置
+              </Button>
+            </Space>
           </div>
         ),
         okText: '我知道了',

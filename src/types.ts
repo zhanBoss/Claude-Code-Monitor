@@ -69,6 +69,10 @@ export interface ElectronAPI {
   ) => Promise<void>
   // 获取配置文件路径
   getConfigPath: () => Promise<string>
+  // 在默认编辑器中打开配置文件
+  openConfigFile: () => Promise<void>
+  // 在文件管理器中显示配置文件
+  showConfigInFolder: () => Promise<void>
 }
 
 // AI 总结请求参数

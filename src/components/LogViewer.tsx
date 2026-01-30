@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
-import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, StarOutlined } from '@ant-design/icons'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Segmented } from 'antd'
+import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, StarOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -383,14 +383,16 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
         background: themeVars.bgSection,
         flexShrink: 0
       }}>
+        {/* 第一行：视图切换 */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginBottom: 12,
           flexWrap: 'wrap',
           gap: 12
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 150 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {showDrawerButton && (
               <Button
                 icon={<MenuOutlined />}
@@ -401,12 +403,34 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
                 配置
               </Button>
             )}
-            <div>
-              <Title level={4} style={{ margin: 0, marginBottom: 4, fontSize: 16 }}>实时对话日志</Title>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                共 {groupedRecords.length} 个会话，{records.length} 条记录
-              </Text>
-            </div>
+            <Segmented
+              value="realtime"
+              onChange={(value) => {
+                if (value === 'history') {
+                  onToggleView()
+                }
+              }}
+              options={[
+                {
+                  label: (
+                    <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ThunderboltOutlined />
+                      <span>实时对话</span>
+                    </div>
+                  ),
+                  value: 'realtime'
+                },
+                {
+                  label: (
+                    <div style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ClockCircleOutlined />
+                      <span>历史记录</span>
+                    </div>
+                  ),
+                  value: 'history'
+                }
+              ]}
+            />
           </div>
           <Space wrap>
             <Button
@@ -415,26 +439,27 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
               size="small"
               loading={summarizing}
               disabled={records.length === 0}
+              type="primary"
             >
               AI 总结
-            </Button>
-            <Button
-              icon={<HistoryOutlined />}
-              type="primary"
-              onClick={onToggleView}
-              size="small"
-            >
-              历史对话
             </Button>
             <Button
               icon={<DeleteOutlined />}
               danger
               onClick={onClear}
               size="small"
+              disabled={records.length === 0}
             >
               清空
             </Button>
           </Space>
+        </div>
+
+        {/* 第二行：统计信息 */}
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            共 {groupedRecords.length} 个会话，{records.length} 条记录
+          </Text>
         </div>
       </div>
 

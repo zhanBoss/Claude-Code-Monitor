@@ -72,5 +72,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // 获取配置文件路径
-  getConfigPath: () => ipcRenderer.invoke('get-config-path')
+  getConfigPath: () => ipcRenderer.invoke('get-config-path'),
+
+  // 在默认编辑器中打开配置文件
+  openConfigFile: () => ipcRenderer.invoke('open-config-file'),
+
+  // 在文件管理器中显示配置文件
+  showConfigInFolder: () => ipcRenderer.invoke('show-config-in-folder')
 })

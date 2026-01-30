@@ -1001,6 +1001,28 @@ ipcMain.handle('get-config-path', async () => {
   return store.path
 })
 
+// 在默认编辑器中打开配置文件
+ipcMain.handle('open-config-file', async () => {
+  try {
+    const configPath = store.path
+    await shell.openPath(configPath)
+  } catch (error) {
+    console.error('打开配置文件失败:', error)
+    throw error
+  }
+})
+
+// 在文件管理器中显示配置文件
+ipcMain.handle('show-config-in-folder', async () => {
+  try {
+    const configPath = store.path
+    shell.showItemInFolder(configPath)
+  } catch (error) {
+    console.error('显示配置文件失败:', error)
+    throw error
+  }
+})
+
 // 初始化时检查是否需要启动监控
 app.whenReady().then(() => {
   const enabled = store.get('recordEnabled', false) as boolean
