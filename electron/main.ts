@@ -31,13 +31,14 @@ function createWindow() {
 
   // 开发模式：加载 Vite 开发服务器
   // 生产模式：加载打包后的文件
-  const isDev = process.env.NODE_ENV !== 'production'
+  const isDev = !app.isPackaged
 
   if (isDev) {
     const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
     mainWindow.loadURL(devServerUrl)
     mainWindow.webContents.openDevTools()
   } else {
+    // 生产环境：加载打包后的 index.html
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
