@@ -32,6 +32,8 @@ function createWindow() {
   // 开发模式：加载 Vite 开发服务器
   // 生产模式：加载打包后的文件
   const isDev = !app.isPackaged
+  // 开发构建模式：打包后仍然显示 DevTools（通过环境变量控制）
+  const isDevBuild = process.env.ELECTRON_DEV_BUILD === 'true'
 
   if (isDev) {
     const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
@@ -40,6 +42,11 @@ function createWindow() {
   } else {
     // 生产环境：加载打包后的 index.html
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+
+    // 如果是开发构建模式，打开 DevTools 方便调试
+    if (isDevBuild) {
+      mainWindow.webContents.openDevTools()
+    }
   }
 
   mainWindow.on('closed', () => {
