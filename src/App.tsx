@@ -165,7 +165,6 @@ function App() {
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
       <Layout style={{ height: '100vh' }}>
         <StatusBar
-          claudeDir={claudeDir}
           onOpenSettings={() => setViewMode('settings')}
         />
 

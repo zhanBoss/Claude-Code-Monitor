@@ -3,11 +3,10 @@ import { MessageOutlined, SettingOutlined } from '@ant-design/icons'
 import type { CSSProperties } from 'react'
 
 interface StatusBarProps {
-  claudeDir: string
   onOpenSettings: () => void
 }
 
-function StatusBar({ claudeDir, onOpenSettings }: StatusBarProps) {
+function StatusBar({ onOpenSettings }: StatusBarProps) {
   return (
     <div
       style={{

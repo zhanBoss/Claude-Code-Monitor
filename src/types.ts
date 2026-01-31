@@ -77,6 +77,8 @@ export interface ElectronAPI {
   readAppConfigFile: () => Promise<string>
   // 保存应用配置文件内容
   saveAppConfigFile: (content: string) => Promise<void>
+  // 卸载应用
+  uninstallApp: () => Promise<{ success: boolean; error?: string }>
 }
 
 // AI 总结请求参数
