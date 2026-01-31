@@ -5,6 +5,10 @@ import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 
 export default defineConfig({
+  define: {
+    // 注入环境变量到前端代码
+    '__IS_DEV_BUILD__': JSON.stringify(process.env.ELECTRON_DEV_BUILD === 'true')
+  },
   server: {
     port: 5173
   },

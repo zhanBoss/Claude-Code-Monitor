@@ -47,7 +47,7 @@ function StatusBar({ onOpenSettings }: StatusBarProps) {
               letterSpacing: 0.5,
               whiteSpace: 'nowrap'
             }}>
-              Claude Code Monitor
+              CCMonitor{__IS_DEV_BUILD__ ? ' --develop' : ''}
             </div>
             <div style={{
               fontSize: 12,

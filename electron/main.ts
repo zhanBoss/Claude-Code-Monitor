@@ -1112,6 +1112,20 @@ ipcMain.handle('uninstall-app', async () => {
   }
 })
 
+// 打开开发者工具
+ipcMain.handle('open-devtools', async () => {
+  try {
+    if (mainWindow) {
+      mainWindow.webContents.openDevTools()
+      return { success: true }
+    }
+    return { success: false, error: '窗口不存在' }
+  } catch (error) {
+    console.error('打开开发者工具失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 初始化时检查是否需要启动监控
 app.whenReady().then(() => {
   const enabled = store.get('recordEnabled', false) as boolean

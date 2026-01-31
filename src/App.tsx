@@ -8,6 +8,7 @@ import RecordControl from './components/RecordControl'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import SettingsView from './components/SettingsView'
+import DevFooter from './components/DevFooter'
 import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
@@ -163,7 +164,7 @@ function App() {
 
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
-      <Layout style={{ height: '100vh' }}>
+      <Layout style={{ height: '100vh', paddingBottom: __IS_DEV_BUILD__ ? 32 : 0 }}>
         <StatusBar
           onOpenSettings={() => setViewMode('settings')}
         />
@@ -275,6 +276,9 @@ function App() {
         </Drawer>
 
       </Layout>
+
+      {/* 开发模式提示（仅开发构建版本显示） */}
+      {__IS_DEV_BUILD__ && <DevFooter />}
     </ConfigProvider>
   )
 }

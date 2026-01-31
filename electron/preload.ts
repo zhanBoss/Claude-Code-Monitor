@@ -87,5 +87,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAppConfigFile: (content: string) => ipcRenderer.invoke('save-app-config-file', content),
 
   // 卸载应用
-  uninstallApp: () => ipcRenderer.invoke('uninstall-app')
+  uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
+
+  // 打开开发者工具
+  openDevtools: () => ipcRenderer.invoke('open-devtools')
 })

@@ -79,6 +79,8 @@ export interface ElectronAPI {
   saveAppConfigFile: (content: string) => Promise<void>
   // 卸载应用
   uninstallApp: () => Promise<{ success: boolean; error?: string }>
+  // 打开开发者工具
+  openDevtools: () => Promise<{ success: boolean; error?: string }>
 }
 
 // AI 总结请求参数
