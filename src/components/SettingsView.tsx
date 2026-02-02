@@ -725,28 +725,28 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
             </Space>
           </Card>
         </div>
-      </div>
 
-      {/* 配置文件编辑器 */}
-      <ConfigFileEditor
-        title="编辑应用配置文件"
-        filePath={configPath}
-        darkMode={darkMode}
-        visible={configEditorVisible}
-        onClose={() => setConfigEditorVisible(false)}
-        onLoad={async () => {
-          const content = await window.electronAPI.readAppConfigFile()
-          return content
-        }}
-        onSave={async (content: string) => {
-          await window.electronAPI.saveAppConfigFile(content)
-          // 重新加载设置
-          await loadSettings()
-        }}
-        onOpenFolder={async () => {
-          await window.electronAPI.showConfigInFolder()
-        }}
-      />
+        {/* 配置文件编辑器 */}
+        <ConfigFileEditor
+          title="编辑应用配置文件"
+          filePath={configPath}
+          darkMode={darkMode}
+          visible={configEditorVisible}
+          onClose={() => setConfigEditorVisible(false)}
+          onLoad={async () => {
+            const content = await window.electronAPI.readAppConfigFile()
+            return content
+          }}
+          onSave={async (content: string) => {
+            await window.electronAPI.saveAppConfigFile(content)
+            // 重新加载设置
+            await loadSettings()
+          }}
+          onOpenFolder={async () => {
+            await window.electronAPI.showConfigInFolder()
+          }}
+        />
+      </div>
     </div>
   )
 }
