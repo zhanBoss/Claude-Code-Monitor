@@ -381,12 +381,13 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexShrink: 0
-      }}>
+        flexShrink: 0,
+        WebkitAppRegion: 'drag'
+      } as React.CSSProperties}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           共 {groupedRecords.length} 个会话，{records.length} 条记录
         </Text>
-        <Space>
+        <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Button
             type="primary"
             icon={<StarOutlined />}

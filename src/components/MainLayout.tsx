@@ -28,7 +28,7 @@ function MainLayout({ currentRoute, onRouteChange, darkMode, children }: MainLay
   }, [])
 
   return (
-    <Layout style={{ height: '100vh' }}>
+    <Layout style={{ height: '100vh', display: 'flex', flexDirection: 'row' }}>
       {/* 桌面端：固定侧边栏 */}
       {!isMobile && (
         <Sidebar
@@ -63,8 +63,11 @@ function MainLayout({ currentRoute, onRouteChange, darkMode, children }: MainLay
 
       {/* 右侧内容区 - 直接显示，不要顶部标题栏 */}
       <Layout.Content style={{
+        flex: 1,
         background: themeVars.bgContainer,
-        overflow: 'auto'
+        overflow: 'auto',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {children}
       </Layout.Content>

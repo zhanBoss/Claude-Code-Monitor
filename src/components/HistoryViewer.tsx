@@ -578,14 +578,15 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         background: themeVars.bgContainer,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+        alignItems: 'center',
+        WebkitAppRegion: 'drag'
+      } as React.CSSProperties}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
           {searchKeyword && ` (搜索"${searchKeyword}")`}
           {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
         </Text>
-        <Space>
+        <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Button
             icon={<ReloadOutlined />}
             onClick={loadHistory}

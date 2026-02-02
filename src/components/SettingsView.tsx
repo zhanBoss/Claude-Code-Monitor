@@ -317,19 +317,39 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: themeVars.bgLayout,
-      overflow: 'auto',
-      padding: '24px'
+      backgroundColor: themeVars.bgLayout
     }}>
+      {/* 顶部标题栏 - 可拖动 */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
-        gap: '24px',
-        maxWidth: '1400px',
-        margin: '0 auto',
-        paddingBottom: '24px',
-        width: '100%'
+        padding: '16px',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgSection,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+        WebkitAppRegion: 'drag'
+      } as React.CSSProperties}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          应用设置
+        </Text>
+      </div>
+
+      {/* 内容区域 */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '24px'
       }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
+          gap: '24px',
+          maxWidth: '1400px',
+          margin: '0 auto',
+          paddingBottom: '24px',
+          width: '100%'
+        }}>
           {/* 卡片 1: 通用设置 */}
           <Card
             title={
@@ -724,10 +744,10 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
               </div>
             </Space>
           </Card>
-      </div>
+        </div>
 
-      {/* 配置文件编辑器 */}
-      <ConfigFileEditor
+        {/* 配置文件编辑器 */}
+        <ConfigFileEditor
           title="编辑应用配置文件"
           filePath={configPath}
           darkMode={darkMode}
@@ -746,6 +766,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
             await window.electronAPI.showConfigInFolder()
           }}
         />
+      </div>
     </div>
   )
 }

@@ -36,7 +36,8 @@ function Sidebar({ currentRoute, onNavigate, darkMode }: SidebarProps) {
       background: themeVars.bgContainer,
       borderRight: `1px solid ${themeVars.borderSecondary}`,
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      flexShrink: 0
     }}>
       {/* Logo 区域 */}
       <div style={{
@@ -48,8 +49,9 @@ function Sidebar({ currentRoute, onNavigate, darkMode }: SidebarProps) {
         fontSize: 18,
         fontWeight: 600,
         fontFamily: 'Fira Code, monospace',
-        color: themeVars.primary
-      }}>
+        color: themeVars.primary,
+        WebkitAppRegion: 'drag'
+      } as React.CSSProperties}>
         CCMonitor
       </div>
 
