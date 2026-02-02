@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented, Select, Modal } from 'antd'
 import {
-  ArrowLeftOutlined,
   SaveOutlined,
   BulbOutlined,
   RobotOutlined,
@@ -11,11 +10,16 @@ import {
   LaptopOutlined,
   FolderOpenOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  CodeOutlined,
+  PlayCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
+import ConfigEditor from './ConfigEditor'
+import RecordControl from './RecordControl'
 
 const { Title, Text, Link } = Typography
 
@@ -23,13 +27,12 @@ const { Title, Text, Link } = Typography
 type ProviderType = 'groq' | 'deepseek' | 'gemini' | 'custom'
 
 interface SettingsViewProps {
-  onBack: () => void
   darkMode: boolean
   onThemeModeChange?: (themeMode: 'light' | 'dark' | 'system') => void
   claudeDir?: string
 }
 
-function SettingsView({ onBack, darkMode, onThemeModeChange, claudeDir }: SettingsViewProps) {
+function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewProps) {
   const [settings, setSettings] = useState<AppSettings>({
     themeMode: 'system',
     autoStart: false,
@@ -315,47 +318,18 @@ function SettingsView({ onBack, darkMode, onThemeModeChange, claudeDir }: Settin
       display: 'flex',
       flexDirection: 'column',
       backgroundColor: themeVars.bgLayout,
-      overflow: 'hidden'
+      overflow: 'auto',
+      padding: '24px'
     }}>
-      {/* 顶部标题栏 */}
       <div style={{
-        padding: '16px 24px',
-        backgroundColor: themeVars.bgContainer,
-        borderBottom: `1px solid ${themeVars.border}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexShrink: 0
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
+        gap: '24px',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        paddingBottom: '24px',
+        width: '100%'
       }}>
-        <Space size="middle">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={onBack}
-            type="text"
-          >
-            返回
-          </Button>
-          <Title level={4} style={{ margin: 0, color: themeVars.text }}>
-            设置
-          </Title>
-        </Space>
-      </div>
-
-      {/* 内容区域 */}
-      <div style={{
-        flex: 1,
-        padding: '24px',
-        overflow: 'auto',
-        minHeight: 0
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
-          gap: '24px',
-          maxWidth: '1400px',
-          margin: '0 auto',
-          paddingBottom: '24px'
-        }}>
           {/* 卡片 1: 通用设置 */}
           <Card
             title={
@@ -480,7 +454,39 @@ function SettingsView({ onBack, darkMode, onThemeModeChange, claudeDir }: Settin
             </Space>
           </Card>
 
-          {/* 卡片 2: AI 总结设置 */}
+          {/* 卡片 2: Claude Code 配置 */}
+          <Card
+            title={
+              <Space>
+                <CodeOutlined style={{ color: '#667eea' }} />
+                <span>Claude Code 配置</span>
+              </Space>
+            }
+            style={{
+              backgroundColor: themeVars.bgContainer,
+              borderColor: themeVars.border
+            }}
+          >
+            <ConfigEditor darkMode={darkMode} />
+          </Card>
+
+          {/* 卡片 3: 对话记录管理 */}
+          <Card
+            title={
+              <Space>
+                <PlayCircleOutlined style={{ color: '#667eea' }} />
+                <span>对话记录管理</span>
+              </Space>
+            }
+            style={{
+              backgroundColor: themeVars.bgContainer,
+              borderColor: themeVars.border
+            }}
+          >
+            <RecordControl darkMode={darkMode} />
+          </Card>
+
+          {/* 卡片 4: AI 总结设置 */}
           <Card
             title={
               <Space>
@@ -650,7 +656,42 @@ function SettingsView({ onBack, darkMode, onThemeModeChange, claudeDir }: Settin
             </Space>
           </Card>
 
-          {/* 卡片 3: 危险操作 */}
+          {/* 卡片 5: 关于 */}
+          <Card
+            title={
+              <Space>
+                <InfoCircleOutlined style={{ color: '#667eea' }} />
+                <span>关于</span>
+              </Space>
+            }
+            style={{
+              backgroundColor: themeVars.bgContainer,
+              borderColor: themeVars.border,
+              gridColumn: '1 / -1'
+            }}
+          >
+            <Space vertical size="middle" style={{ width: '100%' }}>
+              <div>
+                <Text strong style={{ fontSize: 16 }}>Claude Code Monitor</Text>
+                <br />
+                <Text type="secondary">实时监控 Claude Code 对话历史的开源工具</Text>
+              </div>
+              <Divider style={{ margin: 0 }} />
+              <Space direction="vertical" size={4}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  版本：1.0.0
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  作者：Claude Code Monitor Team
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  开源协议：MIT License
+                </Text>
+              </Space>
+            </Space>
+          </Card>
+
+          {/* 卡片 6: 危险操作 */}
           <Card
             title={
               <Space>
