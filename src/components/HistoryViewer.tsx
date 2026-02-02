@@ -6,7 +6,9 @@ import {
   FileTextOutlined,
   SearchOutlined,
   StarOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  ReloadOutlined,
+  ExportOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -16,7 +18,6 @@ import { ClaudeRecord } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
-import ViewHeader from './ViewHeader'
 
 // 设置 dayjs 中文语言
 dayjs.locale('zh-cn')
@@ -25,7 +26,6 @@ const { Text, Paragraph } = Typography
 const { RangePicker } = DatePicker
 
 interface HistoryViewerProps {
-  onToggleView: () => void
   onOpenSettings?: () => void
   darkMode: boolean
 }
@@ -39,7 +39,7 @@ interface GroupedRecord {
 
 type DateRange = '1d' | '7d' | '30d' | 'custom'
 
-function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewerProps) {
+function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   const [records, setRecords] = useState<ClaudeRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange>('1d')
@@ -571,34 +571,38 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
       background: themeVars.bgContainer,
       minHeight: 0
     }}>
-      <ViewHeader
-        currentView="history"
-        onViewChange={(view) => {
-          if (view === 'realtime') {
-            onToggleView()
-          }
-        }}
-        showDrawerButton={true}
-        darkMode={darkMode}
-        historyActions={{
-          onRefresh: loadHistory,
-          onExport: handleExport,
-          loading: loading,
-          hasRecords: groupedRecords.length > 0
-        }}
-      />
-
-      {/* 统计信息 */}
+      {/* 操作栏 */}
       <div style={{
         padding: '12px 16px',
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        background: themeVars.bgContainer
+        borderBottom: `1px solid ${themeVars.border}`,
+        background: themeVars.bgContainer,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
           {searchKeyword && ` (搜索"${searchKeyword}")`}
           {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
         </Text>
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadHistory}
+            loading={loading}
+            size="small"
+          >
+            刷新
+          </Button>
+          <Button
+            icon={<ExportOutlined />}
+            onClick={handleExport}
+            disabled={groupedRecords.length === 0}
+            size="small"
+          >
+            导出
+          </Button>
+        </Space>
       </div>
 
       {/* 内容区域 */}

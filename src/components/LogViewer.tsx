@@ -1,22 +1,18 @@
 import { useState, useMemo } from 'react'
 import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
-import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined } from '@ant-design/icons'
+import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
-import ViewHeader from './ViewHeader'
 
 const { Text } = Typography
 
 interface LogViewerProps {
   records: ClaudeRecord[]
   onClear: () => void
-  onToggleView: () => void
-  onOpenDrawer: () => void
   onOpenSettings?: () => void
-  showDrawerButton?: boolean
   darkMode: boolean
 }
 
@@ -27,7 +23,7 @@ interface GroupedRecord {
   latestTimestamp: number
 }
 
-function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSettings, showDrawerButton = true, darkMode }: LogViewerProps) {
+function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
@@ -378,33 +374,38 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
       background: themeVars.bgContainer,
       minHeight: 0
     }}>
-      <ViewHeader
-        currentView="realtime"
-        onViewChange={(view) => {
-          if (view === 'history') {
-            onToggleView()
-          }
-        }}
-        showDrawerButton={showDrawerButton}
-        onOpenDrawer={onOpenDrawer}
-        darkMode={darkMode}
-        realtimeActions={{
-          onSummarize: handleSummarizeCurrentLogs,
-          onClear: onClear,
-          summarizing: summarizing,
-          hasRecords: records.length > 0
-        }}
-      />
-
-      {/* 统计信息 */}
+      {/* 操作栏 */}
       <div style={{
         padding: '12px 16px',
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        background: themeVars.bgContainer
+        borderBottom: `1px solid ${themeVars.border}`,
+        background: themeVars.bgContainer,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           共 {groupedRecords.length} 个会话，{records.length} 条记录
         </Text>
+        <Space>
+          <Button
+            type="primary"
+            icon={<StarOutlined />}
+            onClick={handleSummarizeCurrentLogs}
+            loading={summarizing}
+            disabled={records.length === 0}
+            size="small"
+          >
+            AI 总结
+          </Button>
+          <Button
+            icon={<ClearOutlined />}
+            onClick={onClear}
+            disabled={records.length === 0}
+            size="small"
+          >
+            清空
+          </Button>
+        </Space>
       </div>
 
       <div style={{
