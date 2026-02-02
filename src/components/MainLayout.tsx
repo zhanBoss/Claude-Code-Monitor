@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Layout, Drawer } from 'antd'
 import Sidebar from './Sidebar'
-import TopBar from './TopBar'
 import { getThemeVars } from '../theme'
 
 interface MainLayoutProps {
@@ -27,16 +26,6 @@ function MainLayout({ currentRoute, onRouteChange, darkMode, children }: MainLay
 
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
-
-  // 获取页面标题
-  const getPageTitle = () => {
-    const titles: Record<string, string> = {
-      realtime: '实时对话',
-      history: '历史记录',
-      settings: '应用设置'
-    }
-    return titles[currentRoute] || '实时对话'
-  }
 
   return (
     <Layout style={{ height: '100vh' }}>
@@ -72,22 +61,13 @@ function MainLayout({ currentRoute, onRouteChange, darkMode, children }: MainLay
         </Drawer>
       )}
 
-      {/* 右侧内容区 */}
-      <Layout>
-        <TopBar
-          title={getPageTitle()}
-          showMenuButton={isMobile}
-          onMenuClick={() => setSidebarVisible(true)}
-          darkMode={darkMode}
-        />
-
-        <Layout.Content style={{
-          background: themeVars.bgContainer,
-          overflow: 'auto'
-        }}>
-          {children}
-        </Layout.Content>
-      </Layout>
+      {/* 右侧内容区 - 直接显示，不要顶部标题栏 */}
+      <Layout.Content style={{
+        background: themeVars.bgContainer,
+        overflow: 'auto'
+      }}>
+        {children}
+      </Layout.Content>
     </Layout>
   )
 }
