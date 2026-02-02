@@ -174,14 +174,16 @@ function App() {
     }
   }
 
+  const handleRouteChange = (route: string) => {
+    setCurrentRoute(route as Route)
+  }
+
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
       <MainLayout
         currentRoute={currentRoute}
-        onRouteChange={setCurrentRoute}
+        onRouteChange={handleRouteChange}
         darkMode={darkMode}
-        themeMode={themeMode}
-        onThemeModeChange={setThemeMode}
       >
         {renderContent()}
       </MainLayout>

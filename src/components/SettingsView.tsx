@@ -21,7 +21,7 @@ import ConfigFileEditor from './ConfigFileEditor'
 import ConfigEditor from './ConfigEditor'
 import RecordControl from './RecordControl'
 
-const { Title, Text, Link } = Typography
+const { Text, Link } = Typography
 
 // AI 提供商类型
 type ProviderType = 'groq' | 'deepseek' | 'gemini' | 'custom'
