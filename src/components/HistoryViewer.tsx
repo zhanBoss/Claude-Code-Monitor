@@ -16,7 +16,7 @@ import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ClaudeRecord, RecordConfig } from '../types'
+import { ClaudeRecord, RecordConfig, SessionMetadata } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
@@ -37,16 +37,19 @@ interface GroupedRecord {
   project: string
   records: ClaudeRecord[]
   latestTimestamp: number
+  recordCount: number
 }
 
 type DateRange = '1d' | '7d' | '30d' | 'custom'
 
 function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
-  const [records, setRecords] = useState<ClaudeRecord[]>([])
+  // 使用会话元数据代替完整记录
+  const [sessions, setSessions] = useState<SessionMetadata[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange>('1d')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为初始加载
   const themeVars = getThemeVars(darkMode)
 
   // 记录配置状态
@@ -66,6 +69,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   // 层级 2: Session 详情弹窗
   const [selectedSession, setSelectedSession] = useState<GroupedRecord | null>(null)
   const [sessionModalVisible, setSessionModalVisible] = useState(false)
+  const [sessionDetailsLoading, setSessionDetailsLoading] = useState(false)
 
   // 层级 3: Record 详情弹窗
   const [selectedRecord, setSelectedRecord] = useState<ClaudeRecord | null>(null)
@@ -87,7 +91,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   }
 
   useEffect(() => {
-    loadHistory()
+    loadHistoryMetadata()
     loadRecordConfig()
   }, [])
 
@@ -100,7 +104,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     }
   }
 
-  const loadHistory = async () => {
+  const loadHistoryMetadata = async () => {
     setLoading(true)
     try {
       // 添加超时保护
@@ -109,80 +113,73 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       })
 
       const result = await Promise.race([
-        window.electronAPI.readHistory(),
+        window.electronAPI.readHistoryMetadata(),
         timeoutPromise
       ])
 
-      if (result.success && result.records) {
-        setRecords(result.records)
-        message.success(`成功加载 ${result.records.length} 条记录`)
+      if (result.success && result.sessions) {
+        setSessions(result.sessions)
+        // 只在初始加载时显示提示
+        if (isInitialLoad) {
+          message.success(`成功加载 ${result.sessions.length} 个会话`)
+          setIsInitialLoad(false)
+        }
       } else {
-        setRecords([])
+        setSessions([])
         if (result.error) {
           console.error('加载历史记录失败:', result.error)
           message.error(`加载失败: ${result.error}`)
         } else {
           message.info('没有找到历史记录')
         }
+        setIsInitialLoad(false)
       }
     } catch (error: any) {
       console.error('加载历史记录时发生错误:', error)
       const errorMsg = error?.message || '未知错误'
       message.error(`加载失败: ${errorMsg}`)
-      setRecords([])
+      setSessions([])
+      setIsInitialLoad(false)
     } finally {
       setLoading(false)
     }
   }
 
-  // 根据日期范围筛选记录
-  const filteredRecords = useMemo(() => {
+  // 根据日期范围筛选会话
+  const filteredSessions = useMemo(() => {
     if (customDateRange) {
       const [start, end] = customDateRange
-      return records.filter(r =>
-        r.timestamp >= start.valueOf() &&
-        r.timestamp <= end.valueOf()
+      return sessions.filter(s =>
+        s.latestTimestamp >= start.valueOf() &&
+        s.latestTimestamp <= end.valueOf()
       )
     }
-    return records
-  }, [records, customDateRange])
+    return sessions
+  }, [sessions, customDateRange])
 
-  // 搜索过滤
-  const searchedRecords = useMemo(() => {
+  // 搜索过滤（只能按项目名搜索，因为没有加载完整内容）
+  const searchedSessions = useMemo(() => {
     if (!searchKeyword.trim()) {
-      return filteredRecords
+      return filteredSessions
     }
 
     const keyword = searchKeyword.toLowerCase()
-    return filteredRecords.filter(record => {
-      return record.display.toLowerCase().includes(keyword) ||
-             record.project.toLowerCase().includes(keyword)
+    return filteredSessions.filter(session => {
+      return session.project.toLowerCase().includes(keyword) ||
+             session.sessionId.toLowerCase().includes(keyword)
     })
-  }, [filteredRecords, searchKeyword])
+  }, [filteredSessions, searchKeyword])
 
-  // 按 sessionId 分组
+  // 转换为 GroupedRecord 格式（用于显示）
   const groupedRecords = useMemo(() => {
-    const groups = new Map<string, GroupedRecord>()
-
-    searchedRecords.forEach(record => {
-      const key = record.sessionId || `single-${record.timestamp}`
-
-      if (!groups.has(key)) {
-        groups.set(key, {
-          sessionId: key,
-          project: record.project,
-          records: [],
-          latestTimestamp: record.timestamp
-        })
-      }
-
-      const group = groups.get(key)!
-      group.records.push(record)
-      group.latestTimestamp = Math.max(group.latestTimestamp, record.timestamp)
-    })
-
-    return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
-  }, [searchedRecords])
+    return searchedSessions.map(session => ({
+      sessionId: session.sessionId,
+      project: session.project,
+      records: [], // 暂时为空，点击时才加载
+      latestTimestamp: session.latestTimestamp,
+      recordCount: session.recordCount
+    }))
+  }, [searchedSessions])
 
   // 分页数据
   const paginatedRecords = useMemo(() => {
@@ -191,9 +188,21 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     return groupedRecords.slice(startIndex, endIndex)
   }, [groupedRecords, currentPage, pageSize])
 
-  // 当筛选条件变化时，重置到第一页
+  // 当筛选条件变化时，重置到第一页并提示
   useEffect(() => {
     setCurrentPage(1)
+
+    // 提示筛选结果（跳过初始加载）
+    if (!loading && !isInitialLoad && sessions.length > 0) {
+      const filteredCount = groupedRecords.length
+      const totalRecordCount = groupedRecords.reduce((sum, g) => sum + g.recordCount, 0)
+
+      if (searchKeyword) {
+        message.info(`搜索"${searchKeyword}"找到 ${filteredCount} 个会话，共 ${totalRecordCount} 条记录`)
+      } else {
+        message.success(`筛选结果：${filteredCount} 个会话，共 ${totalRecordCount} 条记录`)
+      }
+    }
   }, [dateRange, customDateRange, searchKeyword])
 
   // 分页变化处理
@@ -248,10 +257,30 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     }
   }
 
-  // 打开 Session 详情弹窗
-  const handleSessionClick = (session: GroupedRecord) => {
-    setSelectedSession(session)
+  // 打开 Session 详情弹窗（按需加载详细数据）
+  const handleSessionClick = async (session: GroupedRecord) => {
     setSessionModalVisible(true)
+    setSessionDetailsLoading(true)
+    setSelectedSession(null)
+
+    try {
+      const result = await window.electronAPI.readSessionDetails(session.sessionId)
+
+      if (result.success && result.records) {
+        setSelectedSession({
+          ...session,
+          records: result.records
+        })
+      } else {
+        message.error(`加载会话详情失败: ${result.error || '未知错误'}`)
+        setSessionModalVisible(false)
+      }
+    } catch (error: any) {
+      message.error(`加载会话详情失败: ${error?.message || '未知错误'}`)
+      setSessionModalVisible(false)
+    } finally {
+      setSessionDetailsLoading(false)
+    }
   }
 
   // 打开 Record 详情弹窗
@@ -299,6 +328,18 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         return
       }
 
+      // 如果会话记录为空，需要先加载
+      let sessionRecords = session.records
+      if (!sessionRecords || sessionRecords.length === 0) {
+        const result = await window.electronAPI.readSessionDetails(session.sessionId)
+        if (result.success && result.records) {
+          sessionRecords = result.records
+        } else {
+          message.error('加载会话数据失败')
+          return
+        }
+      }
+
       setSummarizing(true)
 
       // 先打开弹窗，显示"正在生成总结..."
@@ -310,7 +351,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       // 调用流式总结接口
       await window.electronAPI.summarizeRecordsStream(
         {
-          records: session.records,
+          records: sessionRecords,
           type: 'detailed'
         },
         // onChunk: 接收到新内容时追加
@@ -702,14 +743,14 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         WebkitAppRegion: 'drag'
       } as React.CSSProperties}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
+          共 {groupedRecords.length} 个会话，{sessions.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
           {searchKeyword && ` (搜索"${searchKeyword}")`}
           {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
         </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Button
             icon={<ReloadOutlined />}
-            onClick={loadHistory}
+            onClick={loadHistoryMetadata}
             loading={loading}
             size="small"
           >
@@ -912,7 +953,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                           {formatTime(group.latestTimestamp)}
                         </Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          {group.records.length} 条对话
+                          {group.recordCount} 条对话
                         </Text>
                         <Button
                           type="link"
@@ -981,7 +1022,11 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         }}
         zIndex={1001}
       >
-        {selectedSession && (
+        {sessionDetailsLoading ? (
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <Spin size="large" tip="加载会话详情中..." />
+          </div>
+        ) : selectedSession && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             {/* Session 信息 */}
             <Card size="small" styles={{ body: { padding: 12 } }}>

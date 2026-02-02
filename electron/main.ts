@@ -438,7 +438,182 @@ function processRecord(record: any, savePath: string) {
   }
 }
 
-// 读取历史记录
+// 读取历史记录元数据（轻量级，只返回会话信息）
+ipcMain.handle('read-history-metadata', async () => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: '保存路径不存在' }
+    }
+
+    const files = fs.readdirSync(savePath).filter(f => f.endsWith('.jsonl'))
+
+    if (files.length === 0) {
+      return { success: true, sessions: [] }
+    }
+
+    // 使用 Map 按 sessionId 分组统计
+    const sessionsMap = new Map<string, {
+      sessionId: string
+      project: string
+      latestTimestamp: number
+      recordCount: number
+      firstTimestamp: number
+    }>()
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(savePath, file)
+        const content = fs.readFileSync(filePath, 'utf-8')
+        const lines = content.split('\n').filter(line => line.trim())
+
+        for (const line of lines) {
+          try {
+            const record = JSON.parse(line)
+            const timestamp = new Date(record.timestamp).getTime()
+
+            if (isNaN(timestamp) || !record.project) {
+              continue
+            }
+
+            const sessionId = record.sessionId || `single-${timestamp}`
+
+            if (!sessionsMap.has(sessionId)) {
+              sessionsMap.set(sessionId, {
+                sessionId,
+                project: record.project,
+                latestTimestamp: timestamp,
+                firstTimestamp: timestamp,
+                recordCount: 0
+              })
+            }
+
+            const session = sessionsMap.get(sessionId)!
+            session.recordCount++
+            session.latestTimestamp = Math.max(session.latestTimestamp, timestamp)
+            session.firstTimestamp = Math.min(session.firstTimestamp, timestamp)
+          } catch (e) {
+            // 跳过无效记录
+          }
+        }
+      } catch (fileError) {
+        console.error(`读取文件 ${file} 失败:`, fileError)
+      }
+    }
+
+    const sessions = Array.from(sessionsMap.values())
+      .sort((a, b) => b.latestTimestamp - a.latestTimestamp)
+
+    return { success: true, sessions }
+  } catch (error) {
+    console.error('读取历史记录元数据时发生错误:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 读取指定会话的详细记录（按需加载）
+ipcMain.handle('read-session-details', async (_, sessionId: string) => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: '保存路径不存在' }
+    }
+
+    const files = fs.readdirSync(savePath).filter(f => f.endsWith('.jsonl'))
+
+    if (files.length === 0) {
+      return { success: true, records: [] }
+    }
+
+    const records: any[] = []
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(savePath, file)
+        const content = fs.readFileSync(filePath, 'utf-8')
+        const lines = content.split('\n').filter(line => line.trim())
+
+        for (const line of lines) {
+          try {
+            const record = JSON.parse(line)
+            const timestamp = new Date(record.timestamp).getTime()
+
+            if (isNaN(timestamp) || !record.project) {
+              continue
+            }
+
+            const recordSessionId = record.sessionId || `single-${timestamp}`
+
+            // 只加载匹配的 sessionId
+            if (recordSessionId !== sessionId) {
+              continue
+            }
+
+            // 处理粘贴内容：如果是旧格式（只有 contentHash），尝试读取实际内容
+            let pastedContents = record.pastedContents || {}
+            if (pastedContents && typeof pastedContents === 'object') {
+              const expandedContents: Record<string, any> = {}
+              for (const [key, value] of Object.entries(pastedContents)) {
+                if (value && typeof value === 'object' && (value as any).contentHash && !(value as any).content) {
+                  const contentHash = (value as any).contentHash
+                  const pasteFilePath = path.join(CLAUDE_DIR, 'paste-cache', `${contentHash}.txt`)
+
+                  try {
+                    if (fs.existsSync(pasteFilePath)) {
+                      const actualContent = fs.readFileSync(pasteFilePath, 'utf-8')
+                      expandedContents[key] = {
+                        ...value,
+                        content: actualContent
+                      }
+                    } else {
+                      expandedContents[key] = value
+                    }
+                  } catch (err) {
+                    expandedContents[key] = value
+                  }
+                } else {
+                  expandedContents[key] = value
+                }
+              }
+              pastedContents = expandedContents
+            }
+
+            records.push({
+              timestamp,
+              project: record.project,
+              sessionId: recordSessionId,
+              display: record.prompt || '',
+              pastedContents,
+              images: record.images || []
+            })
+          } catch (e) {
+            console.error('解析记录失败:', e)
+          }
+        }
+      } catch (fileError) {
+        console.error(`读取文件 ${file} 失败:`, fileError)
+      }
+    }
+
+    // 按时间排序
+    records.sort((a, b) => a.timestamp - b.timestamp)
+
+    return { success: true, records }
+  } catch (error) {
+    console.error('读取会话详情时发生错误:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 读取历史记录（保留旧接口以兼容）
 ipcMain.handle('read-history', async () => {
   try {
     const savePath = store.get('savePath', '') as string

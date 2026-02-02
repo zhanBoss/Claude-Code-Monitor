@@ -30,8 +30,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 在 Finder 中打开文件夹
   openInFinder: (path: string) => ipcRenderer.invoke('open-in-finder', path),
 
-  // 读取历史记录
+  // 读取历史记录（完整数据，保留兼容）
   readHistory: () => ipcRenderer.invoke('read-history'),
+
+  // 读取历史记录元数据（轻量级，只返回会话信息）
+  readHistoryMetadata: () => ipcRenderer.invoke('read-history-metadata'),
+
+  // 读取指定会话的详细记录（按需加载）
+  readSessionDetails: (sessionId: string) => ipcRenderer.invoke('read-session-details', sessionId),
 
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),

@@ -7,6 +7,15 @@ export interface ClaudeRecord {
   images?: string[]
 }
 
+// 会话元数据（轻量级）
+export interface SessionMetadata {
+  sessionId: string
+  project: string
+  latestTimestamp: number
+  firstTimestamp: number
+  recordCount: number
+}
+
 export interface RecordConfig {
   enabled: boolean
   savePath: string
@@ -71,6 +80,8 @@ export interface ElectronAPI {
   copyToClipboard: (text: string) => Promise<{ success: boolean; error?: string }>
   openInFinder: (path: string) => Promise<{ success: boolean; error?: string }>
   readHistory: () => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
+  readHistoryMetadata: () => Promise<{ success: boolean; sessions?: SessionMetadata[]; error?: string }>
+  readSessionDetails: (sessionId: string) => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
   exportRecords: (options: ExportOptions) => Promise<{ success: boolean; filePath?: string; error?: string }>
