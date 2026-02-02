@@ -3,22 +3,26 @@ import { ThemeConfig, theme as antdTheme } from 'antd'
 // 亮色模式主题
 export const lightTheme: ThemeConfig = {
   token: {
+    // 设计系统主色
     colorPrimary: '#667eea',
-    colorSuccess: '#52c41a',
-    colorWarning: '#faad14',
-    colorError: '#f5222d',
-    colorInfo: '#1890ff',
+    colorSuccess: '#10b981',
+    colorWarning: '#f59e0b',
+    colorError: '#ef4444',
+    colorInfo: '#3b82f6',
     borderRadius: 6,
     fontSize: 14,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    // 背景色
     colorBgContainer: '#ffffff',
     colorBgElevated: '#ffffff',
     colorBgLayout: '#f5f7fa',
-    colorBorder: '#d9d9d9',
-    colorBorderSecondary: '#f0f0f0',
-    colorText: '#333333',
-    colorTextSecondary: '#666666',
-    colorTextTertiary: '#999999',
+    // 边框色
+    colorBorder: '#e5e7eb',
+    colorBorderSecondary: '#f3f4f6',
+    // 文本色
+    colorText: '#1f2937',
+    colorTextSecondary: '#6b7280',
+    colorTextTertiary: '#9ca3af',
   },
   components: {
     Button: {
@@ -92,12 +96,14 @@ export const getThemeVars = (isDark: boolean) => ({
   bgContainer: isDark ? '#1f1f1f' : '#ffffff',
   bgElevated: isDark ? '#262626' : '#ffffff',
   bgLayout: isDark ? '#141414' : '#f5f7fa',
-  bgSection: isDark ? '#1a1a1a' : '#fafafa',
-  border: isDark ? '#434343' : '#d9d9d9',
-  borderSecondary: isDark ? '#303030' : '#f0f0f0',
-  text: isDark ? '#f0f0f0' : '#333333',           // 提高主文字对比度
-  textSecondary: isDark ? '#b8b8b8' : '#666666',  // 提高次级文字对比度
-  textTertiary: isDark ? '#8c8c8c' : '#999999',   // 提高三级文字对比度
-  codeBg: isDark ? '#2a2a2a' : '#f5f5f5',
-  hoverBg: isDark ? '#2a2a2a' : '#f5f5f5',
+  bgSection: isDark ? '#1a1a1a' : '#f9fafb',
+  border: isDark ? '#434343' : '#e5e7eb',
+  borderSecondary: isDark ? '#303030' : '#f3f4f6',
+  text: isDark ? '#f0f0f0' : '#1f2937',
+  textSecondary: isDark ? '#b8b8b8' : '#6b7280',
+  textTertiary: isDark ? '#8c8c8c' : '#9ca3af',
+  codeBg: isDark ? '#2a2a2a' : '#f3f4f6',
+  hoverBg: isDark ? '#2a2a2a' : '#f9fafb',
+  primary: '#667eea',
+  primaryHover: '#5568d3',
 })

@@ -47,7 +47,8 @@ function Sidebar({ currentRoute, onNavigate, darkMode }: SidebarProps) {
         borderBottom: `1px solid ${themeVars.borderSecondary}`,
         fontSize: 18,
         fontWeight: 600,
-        color: '#667eea'
+        fontFamily: 'Fira Code, monospace',
+        color: themeVars.primary
       }}>
         CCMonitor
       </div>
