@@ -6,12 +6,14 @@ import MainLayout from './components/MainLayout'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import SettingsView from './components/SettingsView'
+import AboutView from './components/AboutView'
+import ChangelogView from './components/ChangelogView'
 import DevFooter from './components/DevFooter'
 import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'settings'
+type Route = 'realtime' | 'history' | 'settings' | 'changelog' | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -192,6 +194,18 @@ function App() {
             claudeDir={claudeDir}
             scrollToSection={scrollToSection}
             onScrollComplete={() => setScrollToSection(null)}
+          />
+        )
+      case 'changelog':
+        return (
+          <ChangelogView
+            darkMode={darkMode}
+          />
+        )
+      case 'about':
+        return (
+          <AboutView
+            darkMode={darkMode}
           />
         )
       default:

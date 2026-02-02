@@ -12,8 +12,7 @@ import {
   DeleteOutlined,
   ExclamationCircleOutlined,
   CodeOutlined,
-  PlayCircleOutlined,
-  InfoCircleOutlined
+  PlayCircleOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
@@ -336,6 +335,42 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
           message.success('应用已卸载')
         } catch (error: any) {
           message.error(`卸载失败: ${error?.message || '未知错误'}`)
+        }
+      }
+    })
+  }
+
+  // 清除缓存
+  const handleClearCache = () => {
+    Modal.confirm({
+      title: '确认清除缓存',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>清除缓存将执行以下操作：</p>
+          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+            <li>删除保存路径下的所有对话记录文件（.jsonl）</li>
+            <li>删除所有图片缓存（images 目录）</li>
+            <li>不影响 Claude Code 原始历史记录</li>
+          </ul>
+          <p style={{ marginTop: 8, color: themeVars.error, fontWeight: 500 }}>
+            此操作不可恢复，请确认是否继续？
+          </p>
+        </div>
+      ),
+      okText: '确认清除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const result = await window.electronAPI.clearCache()
+          if (result.success) {
+            message.success(`缓存已清除，共删除 ${result.deletedCount} 个文件`)
+          } else {
+            message.error(`清除失败: ${result.error}`)
+          }
+        } catch (error: any) {
+          message.error(`清除失败: ${error?.message || '未知错误'}`)
         }
       }
     })
@@ -706,41 +741,6 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
             </Space>
           </Card>
 
-          {/* 卡片 5: 关于 */}
-          <Card
-            title={
-              <Space>
-                <InfoCircleOutlined style={{ color: themeVars.primary }} />
-                <span>关于</span>
-              </Space>
-            }
-            style={{
-              backgroundColor: themeVars.bgContainer,
-              borderColor: themeVars.border,
-              gridColumn: '1 / -1'
-            }}
-          >
-            <Space vertical size="middle" style={{ width: '100%' }}>
-              <div>
-                <Text strong style={{ fontSize: 16 }}>Claude Code Monitor</Text>
-                <br />
-                <Text type="secondary">实时监控 Claude Code 对话历史的开源工具</Text>
-              </div>
-              <Divider style={{ margin: 0 }} />
-              <Space direction="vertical" size={4}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  版本：1.0.0
-                </Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  作者：Claude Code Monitor Team
-                </Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  开源协议：MIT License
-                </Text>
-              </Space>
-            </Space>
-          </Card>
-
           {/* 卡片 6: 危险操作 */}
           <Card
             title={
@@ -756,6 +756,27 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
             }}
           >
             <Space vertical size="large" style={{ width: '100%' }}>
+              {/* 清除缓存 */}
+              <div>
+                <Text style={{ color: themeVars.text, fontWeight: 500 }}>清除缓存</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
+                  删除保存路径下的所有对话记录和图片缓存（不影响 Claude Code 原始数据）
+                </Text>
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={handleClearCache}
+                  size="large"
+                  block
+                >
+                  清除缓存
+                </Button>
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+
+              {/* 卸载应用 */}
               <div>
                 <Text style={{ color: themeVars.text, fontWeight: 500 }}>卸载应用</Text>
                 <br />

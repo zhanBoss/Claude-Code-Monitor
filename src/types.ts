@@ -106,6 +106,8 @@ export interface ElectronAPI {
   saveAppConfigFile: (content: string) => Promise<void>
   // 卸载应用
   uninstallApp: () => Promise<{ success: boolean; error?: string }>
+  // 清除缓存
+  clearCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>
   // 打开开发者工具
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件

@@ -95,6 +95,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 卸载应用
   uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
 
+  // 清除缓存
+  clearCache: () => ipcRenderer.invoke('clear-cache'),
+
   // 打开开发者工具
   openDevtools: () => ipcRenderer.invoke('open-devtools'),
 

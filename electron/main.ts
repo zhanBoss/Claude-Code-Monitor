@@ -1357,6 +1357,43 @@ ipcMain.handle('save-app-config-file', async (_, content: string) => {
   }
 })
 
+// 清除缓存（清空保存路径下的所有数据）
+ipcMain.handle('clear-cache', async () => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: '保存路径不存在' }
+    }
+
+    // 读取目录下的所有文件
+    const files = fs.readdirSync(savePath)
+    let deletedCount = 0
+
+    // 删除所有 .jsonl 文件和 images 目录
+    for (const file of files) {
+      const filePath = path.join(savePath, file)
+      const stat = fs.statSync(filePath)
+
+      if (stat.isFile() && file.endsWith('.jsonl')) {
+        fs.unlinkSync(filePath)
+        deletedCount++
+      } else if (stat.isDirectory() && file === 'images') {
+        // 递归删除 images 目录
+        fs.rmSync(filePath, { recursive: true, force: true })
+      }
+    }
+
+    return { success: true, deletedCount }
+  } catch (error) {
+    console.error('清除缓存失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 卸载应用
 ipcMain.handle('uninstall-app', async () => {
   try {
