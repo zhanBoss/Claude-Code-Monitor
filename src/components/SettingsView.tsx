@@ -747,7 +747,6 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
           }}
         />
       </div>
-    </div>
   )
 }
 
