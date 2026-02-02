@@ -1,30 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Layout, Result, Button, ConfigProvider, Drawer, Spin } from 'antd'
+import { Result, Button, ConfigProvider, Spin } from 'antd'
 import { WarningOutlined, LoadingOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
-import StatusBar from './components/StatusBar'
-import ConfigEditor from './components/ConfigEditor'
-import RecordControl from './components/RecordControl'
+import MainLayout from './components/MainLayout'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import SettingsView from './components/SettingsView'
 import DevFooter from './components/DevFooter'
 import { ClaudeRecord } from './types'
-import { lightTheme, darkTheme, getThemeVars } from './theme'
+import { lightTheme, darkTheme } from './theme'
 import 'antd/dist/reset.css'
 
-const { Content, Sider } = Layout
-
-type ViewMode = 'realtime' | 'history' | 'settings'
+type Route = 'realtime' | 'history' | 'settings'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
   const [isCheckingClaude, setIsCheckingClaude] = useState<boolean>(true)
   const [claudeDir, setClaudeDir] = useState<string>('')
   const [records, setRecords] = useState<ClaudeRecord[]>([])
-  const [viewMode, setViewMode] = useState<ViewMode>('realtime')
-  const [drawerVisible, setDrawerVisible] = useState<boolean>(false)
-  const [siderCollapsed, setSiderCollapsed] = useState<boolean>(false)
+  const [currentRoute, setCurrentRoute] = useState<Route>('realtime')
   const [darkMode, setDarkMode] = useState<boolean>(false)
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system')
 
@@ -76,13 +70,6 @@ function App() {
     // 清理监听器
     return cleanup
   }, [])
-
-  // 当侧边栏展开时，自动关闭 Drawer
-  useEffect(() => {
-    if (!siderCollapsed && drawerVisible) {
-      setDrawerVisible(false)
-    }
-  }, [siderCollapsed, drawerVisible])
 
   // 检测中显示加载状态
   if (isCheckingClaude) {
@@ -155,127 +142,49 @@ function App() {
     setRecords([])
   }
 
-  const handleToggleView = () => {
-    setViewMode(prev => prev === 'realtime' ? 'history' : 'realtime')
+  // 根据路由渲染不同内容
+  const renderContent = () => {
+    switch (currentRoute) {
+      case 'realtime':
+        return (
+          <LogViewer
+            records={records}
+            onClear={handleClearRecords}
+            onOpenSettings={() => setCurrentRoute('settings')}
+            darkMode={darkMode}
+          />
+        )
+      case 'history':
+        return (
+          <HistoryViewer
+            onOpenSettings={() => setCurrentRoute('settings')}
+            darkMode={darkMode}
+          />
+        )
+      case 'settings':
+        return (
+          <SettingsView
+            darkMode={darkMode}
+            onThemeModeChange={setThemeMode}
+            claudeDir={claudeDir}
+          />
+        )
+      default:
+        return null
+    }
   }
-
-
-  const themeVars = getThemeVars(darkMode)
 
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
-      <Layout style={{ height: '100vh', paddingBottom: __IS_DEV_BUILD__ ? 32 : 0 }}>
-        <StatusBar
-          onOpenSettings={() => setViewMode('settings')}
-        />
-
-        <Layout style={{ minHeight: 0 }}>
-          {/* 左侧：配置和控制 */}
-          <Sider
-            width="50%"
-            theme={darkMode ? 'dark' : 'light'}
-            breakpoint="lg"
-            collapsedWidth={0}
-            onBreakpoint={(broken) => {
-              setSiderCollapsed(broken)
-            }}
-            onCollapse={(collapsed) => {
-              setSiderCollapsed(collapsed)
-            }}
-            style={{
-              borderRight: `1px solid ${themeVars.borderSecondary}`,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: 400,
-              maxWidth: '50%',
-              background: themeVars.bgContainer
-            }}
-          >
-            <div style={{
-              flex: 1,
-              overflow: 'auto',
-              padding: 24,
-              minHeight: 0
-            }}>
-              <ConfigEditor darkMode={darkMode} />
-            </div>
-            <div style={{
-              borderTop: `1px solid ${themeVars.borderSecondary}`,
-              padding: 24,
-              background: themeVars.bgSection,
-              flexShrink: 0
-            }}>
-              <RecordControl darkMode={darkMode} />
-            </div>
-          </Sider>
-
-          {/* 右侧：日志查看 */}
-          <Content style={{
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 400,
-            overflow: 'hidden'
-          }}>
-            {viewMode === 'realtime' ? (
-              <LogViewer
-                records={records}
-                onClear={handleClearRecords}
-                onToggleView={handleToggleView}
-                onOpenDrawer={() => setDrawerVisible(true)}
-                onOpenSettings={() => setViewMode('settings')}
-                showDrawerButton={siderCollapsed && !drawerVisible}
-                darkMode={darkMode}
-              />
-            ) : viewMode === 'history' ? (
-              <HistoryViewer
-                onToggleView={handleToggleView}
-                onOpenSettings={() => setViewMode('settings')}
-                darkMode={darkMode}
-              />
-            ) : (
-              <SettingsView
-                onBack={() => setViewMode('realtime')}
-                darkMode={darkMode}
-                onThemeModeChange={setThemeMode}
-                claudeDir={claudeDir}
-              />
-            )}
-          </Content>
-        </Layout>
-
-        {/* 抽屉：小屏幕下显示配置 */}
-        <Drawer
-          title="配置与控制"
-          placement="left"
-          onClose={() => setDrawerVisible(false)}
-          open={drawerVisible}
-          size={400}
-          closable={false}
-          styles={{
-            header: {
-              paddingLeft: 80  // 为 macOS 全屏模式的窗口控制按钮预留空间
-            }
-          }}
-        >
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%'
-          }}>
-            <div style={{ flex: 1, overflow: 'auto', marginBottom: 24 }}>
-              <ConfigEditor darkMode={darkMode} />
-            </div>
-            <div style={{
-              borderTop: `1px solid ${themeVars.borderSecondary}`,
-              paddingTop: 24
-            }}>
-              <RecordControl darkMode={darkMode} />
-            </div>
-          </div>
-        </Drawer>
-
-      </Layout>
+      <MainLayout
+        currentRoute={currentRoute}
+        onRouteChange={setCurrentRoute}
+        darkMode={darkMode}
+        themeMode={themeMode}
+        onThemeModeChange={setThemeMode}
+      >
+        {renderContent()}
+      </MainLayout>
 
       {/* 开发模式提示（仅开发构建版本显示） */}
       {__IS_DEV_BUILD__ && <DevFooter />}
