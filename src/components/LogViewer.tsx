@@ -273,7 +273,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     }
   }
 
-  // 图片组件 - 使用 Ant Design Image
+  // 图片组件 - 使用轮询机制确保图片最终加载成功
   const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
     const [imageData, setImageData] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
@@ -287,25 +287,52 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         return
       }
 
-      // 加载图片
-      const loadImage = async () => {
+      let isMounted = true
+      let pollTimer: NodeJS.Timeout | null = null
+      const startTime = Date.now()
+      const maxPollTime = 30000 // 最多轮询30秒
+
+      // 轮询加载图片
+      const pollImage = async () => {
+        if (!isMounted) return
+
+        // 检查是否超时
+        if (Date.now() - startTime > maxPollTime) {
+          setError('加载超时')
+          setLoading(false)
+          return
+        }
+
         try {
           const result = await window.electronAPI.readImage(imagePath)
+
+          if (!isMounted) return
+
           if (result.success && result.data) {
+            // 成功加载
             setImageData(result.data)
-            // 更新缓存
             setImageCache(prev => new Map(prev).set(imagePath, result.data!))
+            setLoading(false)
           } else {
-            setError(result.error || '加载失败')
+            // 失败，继续轮询
+            pollTimer = setTimeout(pollImage, 1000) // 每秒轮询一次
           }
         } catch (err: any) {
-          setError(err.message || '加载失败')
-        } finally {
-          setLoading(false)
+          if (!isMounted) return
+          // 出错，继续轮询
+          pollTimer = setTimeout(pollImage, 1000)
         }
       }
 
-      loadImage()
+      // 开始轮询
+      pollImage()
+
+      return () => {
+        isMounted = false
+        if (pollTimer) {
+          clearTimeout(pollTimer)
+        }
+      }
     }, [imagePath])
 
     if (loading) {

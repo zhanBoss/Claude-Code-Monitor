@@ -1,6 +1,6 @@
 {
   "name": "ccmonitor",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Claude Code 配置管理和对话记录监控工具",
   "main": "dist-electron/main.js",
   "scripts": {

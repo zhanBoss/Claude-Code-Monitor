@@ -460,10 +460,10 @@ async function processRecord(record: any, savePath: string) {
     fs.appendFileSync(filePath, JSON.stringify(logEntry) + '\n', 'utf-8')
 
     // 发送到渲染进程（在图片处理完成后）
-    // 构建完整的 record 对象，包含处理后的图片路径
+    // 构建完整的 record 对象，包含相对路径的图片
     const enrichedRecord = {
       ...record,
-      images: images.length > 0 ? images.map(img => path.join(savePath, img)) : undefined
+      images: images.length > 0 ? images : undefined
     }
 
     if (mainWindow) {
