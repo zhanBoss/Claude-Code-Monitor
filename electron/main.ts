@@ -274,6 +274,16 @@ ipcMain.handle('open-in-finder', async (_, folderPath: string) => {
   }
 })
 
+// 在外部浏览器中打开链接
+ipcMain.handle('open-external', async (_, url: string) => {
+  try {
+    await shell.openExternal(url)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 启动历史记录监控
 function startHistoryMonitor(savePath: string) {
   if (historyWatcher) {

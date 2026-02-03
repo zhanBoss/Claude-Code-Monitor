@@ -22,6 +22,7 @@ import { ClaudeRecord, RecordConfig, SessionMetadata } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
+import SmartContent from './SmartContent'
 
 // 设置 dayjs 中文语言
 dayjs.locale('zh-cn')
@@ -133,16 +134,27 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         setSessions([])
         if (result.error) {
           console.error('加载历史记录失败:', result.error)
-          message.error(`加载失败: ${result.error}`)
-        } else {
-          message.info('没有找到历史记录')
+          // 如果是未配置保存路径的错误，不显示 toast（页面已有提示卡片）
+          const isConfigError = result.error.includes('未配置保存路径') ||
+                                result.error.includes('保存路径') ||
+                                result.error.includes('未开启')
+          if (!isConfigError) {
+            message.error(`加载失败: ${result.error}`)
+          }
         }
         setIsInitialLoad(false)
       }
     } catch (error: any) {
       console.error('加载历史记录时发生错误:', error)
       const errorMsg = error?.message || '未知错误'
-      message.error(`加载失败: ${errorMsg}`)
+      // 如果是配置相关错误，不显示 toast
+      const isConfigError = errorMsg.includes('未配置保存路径') ||
+                            errorMsg.includes('保存路径') ||
+                            errorMsg.includes('未开启') ||
+                            errorMsg.includes('加载超时')
+      if (!isConfigError) {
+        message.error(`加载失败: ${errorMsg}`)
+      }
       setSessions([])
       setIsInitialLoad(false)
     } finally {
@@ -193,21 +205,9 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     return groupedRecords.slice(startIndex, endIndex)
   }, [groupedRecords, currentPage, pageSize])
 
-  // 当筛选条件变化时，重置到第一页并提示
+  // 当筛选条件变化时，重置到第一页
   useEffect(() => {
     setCurrentPage(1)
-
-    // 提示筛选结果（跳过初始加载）
-    if (!loading && !isInitialLoad && sessions.length > 0) {
-      const filteredCount = groupedRecords.length
-      const totalRecordCount = groupedRecords.reduce((sum, g) => sum + g.recordCount, 0)
-
-      if (searchKeyword) {
-        message.info(`搜索"${searchKeyword}"找到 ${filteredCount} 个会话，共 ${totalRecordCount} 条记录`)
-      } else {
-        message.success(`筛选结果：${filteredCount} 个会话，共 ${totalRecordCount} 条记录`)
-      }
-    }
   }, [dateRange, customDateRange, searchKeyword])
 
   // 分页变化处理
@@ -630,119 +630,6 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   }
 
   // 检测内容类型并自动添加语法高亮
-  const detectLanguage = (text: string): string | null => {
-    const trimmed = text.trim()
-
-    // 尝试解析完整 JSON
-    try {
-      JSON.parse(trimmed)
-      return 'json'
-    } catch (e) {
-      // JSON 解析失败，继续其他检测
-    }
-
-    // 检测 JSON 特征（更宽松的规则）
-    const hasJsonChars = trimmed.includes('{') && trimmed.includes(':')
-    const hasQuotedKeys = /["'][a-zA-Z0-9_-]+["']\s*:/.test(trimmed)
-    const startsWithQuotedKey = /^["'][a-zA-Z0-9_-]+["']\s*:/.test(trimmed)
-
-    if (hasJsonChars || hasQuotedKeys || startsWithQuotedKey) {
-      return 'json'
-    }
-
-    // 检测其他代码特征
-    if (text.includes('function') || text.includes('const') || text.includes('let') || text.includes('var')) {
-      return 'javascript'
-    }
-    if (text.includes('import') && text.includes('from')) {
-      return 'typescript'
-    }
-    if (text.includes('def ') || text.includes('class ')) {
-      return 'python'
-    }
-    if (text.includes('<?php')) {
-      return 'php'
-    }
-    if (text.includes('<html') || text.includes('<div') || text.includes('</')) {
-      return 'html'
-    }
-    if (text.includes('SELECT') || text.includes('INSERT') || text.includes('UPDATE')) {
-      return 'sql'
-    }
-
-    return null
-  }
-
-  const renderContent = (content: string) => {
-    // 检测并处理转义的字符串
-    let processedContent = content
-
-    // 检查是否是被 JSON.stringify 包裹的字符串（以 " 开头和结尾）
-    if (content.startsWith('"') && content.endsWith('"')) {
-      try {
-        // 尝试作为 JSON 字符串解析
-        const parsed = JSON.parse(content)
-        if (typeof parsed === 'string') {
-          processedContent = parsed
-        }
-      } catch (e) {
-        // 如果解析失败，直接去除首尾引号并手动处理转义
-        processedContent = content.slice(1, -1)
-          .replace(/\\"/g, '"')
-          .replace(/\\n/g, '\n')
-          .replace(/\\t/g, '\t')
-          .replace(/\\r/g, '\r')
-          .replace(/\\\\/g, '\\')
-      }
-    }
-
-    const trimmed = processedContent.trim()
-
-    // 改进代码检测逻辑：不再强制要求换行符
-    const looksLikeCode = (
-      // JSON 格式
-      (trimmed.startsWith('{') || trimmed.startsWith('[')) ||
-      // 常见代码关键字
-      processedContent.includes('function') ||
-      processedContent.includes('const ') ||
-      processedContent.includes('let ') ||
-      processedContent.includes('var ') ||
-      processedContent.includes('import ') ||
-      processedContent.includes('export ') ||
-      processedContent.includes('class ') ||
-      processedContent.includes('def ') ||
-      processedContent.includes('<?php') ||
-      // 多行代码
-      (processedContent.includes('\n') && (processedContent.includes('{') || processedContent.includes('=')))
-    )
-
-    if (looksLikeCode) {
-      const language = detectLanguage(processedContent)
-
-      if (language) {
-        return (
-          <SyntaxHighlighter
-            language={language}
-            style={vscDarkPlus}
-            customStyle={{
-              margin: 0,
-              borderRadius: 6,
-              fontSize: 13,
-              maxHeight: 500,
-              overflow: 'auto'
-            }}
-            wrapLongLines={true}
-          >
-            {processedContent}
-          </SyntaxHighlighter>
-        )
-      }
-    }
-
-    // 否则使用 Markdown 渲染
-    return renderMarkdown(processedContent)
-  }
-
   const renderMarkdown = (content: string) => (
     <ReactMarkdown
       components={{
@@ -797,112 +684,180 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       background: themeVars.bgContainer,
       minHeight: 0
     }}>
-      {/* 操作栏 */}
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: `1px solid ${themeVars.border}`,
-        background: themeVars.bgContainer,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        WebkitAppRegion: 'drag'
-      } as React.CSSProperties}>
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {groupedRecords.length} 个会话，{sessions.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
-          {searchKeyword && ` (搜索"${searchKeyword}")`}
-          {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
-        </Text>
-        <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={loadHistoryMetadata}
-            loading={loading}
-            size="small"
-          >
-            刷新
-          </Button>
-          <Button
-            icon={<ExportOutlined />}
-            onClick={handleExport}
-            disabled={groupedRecords.length === 0}
-            size="small"
-          >
-            导出
-          </Button>
-        </Space>
-      </div>
+      {/* 操作栏 - 只在有记录或记录功能已开启时显示 */}
+      {(recordConfig?.enabled || groupedRecords.length > 0) && (
+        <div style={{
+          padding: '12px 16px',
+          borderBottom: `1px solid ${themeVars.border}`,
+          background: themeVars.bgContainer,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          WebkitAppRegion: 'drag'
+        } as React.CSSProperties}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            共 {groupedRecords.length} 个会话，{sessions.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
+            {searchKeyword && ` (搜索"${searchKeyword}")`}
+            {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
+          </Text>
+          <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadHistoryMetadata}
+              loading={loading}
+              size="small"
+            >
+              刷新
+            </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExport}
+              disabled={groupedRecords.length === 0}
+              size="small"
+            >
+              导出
+            </Button>
+          </Space>
+        </div>
+      )}
 
       {/* 内容区域 */}
       <div style={{
         flex: 1,
         overflow: 'auto',
-        padding: '16px 24px',
-        minHeight: 0
+        padding: recordConfig && !recordConfig.enabled ? 0 : '16px 24px',
+        minHeight: 0,
+        display: recordConfig && !recordConfig.enabled ? 'flex' : 'block',
+        alignItems: recordConfig && !recordConfig.enabled ? 'center' : 'flex-start',
+        justifyContent: recordConfig && !recordConfig.enabled ? 'center' : 'flex-start'
       }}>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {/* 时间筛选器 */}
-          <Card size="small" styles={{ body: { padding: 12 } }}>
-            <Space wrap>
-              <Button
-                type={dateRange === '1d' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => {
-                  const now = dayjs()
-                  const oneDayAgo = now.subtract(1, 'day')
-                  setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
-                  setDateRange('1d')
-                }}
-              >
-                1天
-              </Button>
-              <Button
-                type={dateRange === '7d' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => {
-                  const now = dayjs()
-                  const sevenDaysAgo = now.subtract(7, 'day')
-                  setCustomDateRange([sevenDaysAgo.startOf('day'), now.endOf('day')])
-                  setDateRange('7d')
-                }}
-              >
-                7天
-              </Button>
-              <Button
-                type={dateRange === '30d' ? 'primary' : 'default'}
-                size="small"
-                onClick={() => {
-                  const now = dayjs()
-                  const thirtyDaysAgo = now.subtract(30, 'day')
-                  setCustomDateRange([thirtyDaysAgo.startOf('day'), now.endOf('day')])
-                  setDateRange('30d')
-                }}
-              >
-                30天
-              </Button>
-              <RangePicker
-                size="small"
-                value={customDateRange}
-                onChange={(dates) => {
-                  if (dates) {
-                    const [start, end] = dates as [Dayjs, Dayjs]
-                    setCustomDateRange([start.startOf('day'), end.endOf('day')])
-                    setDateRange('custom')
-                  }
-                }}
-              />
-            </Space>
-          </Card>
+        {recordConfig && !recordConfig.enabled ? (
+          // 记录功能未开启时的提示 - 完全居中显示
+          loading ? (
+            <div style={{ textAlign: 'center' }}>
+              <Spin size="large" tip="加载中..." />
+            </div>
+          ) : (
+            <Card
+              style={{
+                maxWidth: 420,
+                textAlign: 'center',
+                border: 'none',
+                boxShadow: darkMode
+                  ? '0 4px 24px rgba(0, 0, 0, 0.4)'
+                  : '0 4px 24px rgba(0, 0, 0, 0.06)',
+              }}
+            >
+              <div style={{
+                background: themeVars.primaryGradient,
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px',
+                boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
+              }}>
+                <WarningOutlined style={{ fontSize: 32, color: themeVars.bgContainer }} />
+              </div>
 
-          {/* 搜索框 */}
-          <Card size="small" styles={{ body: { padding: 12 } }}>
-            <Input
-              placeholder="搜索对话内容、项目名称..."
-              prefix={<SearchOutlined />}
-              value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
-              allowClear
-            />
-          </Card>
+              <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
+                记录功能未开启
+              </Text>
+
+              <Text type="secondary" style={{ fontSize: 14, display: 'block', marginBottom: 32, lineHeight: 1.6 }}>
+                开启后即可记录和查看所有对话历史
+              </Text>
+
+              <Button
+                type="primary"
+                size="large"
+                icon={<SettingOutlined />}
+                onClick={() => onOpenSettings?.()}
+                block
+                style={{
+                  height: 48,
+                  fontSize: 16,
+                  fontWeight: 500,
+                  borderRadius: 8,
+                  background: themeVars.primaryGradient,
+                  border: 'none'
+                }}
+              >
+                前往设置开启
+              </Button>
+            </Card>
+          )
+        ) : (
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {/* 时间筛选器 - 只在记录功能已开启时显示 */}
+          {(recordConfig?.enabled || groupedRecords.length > 0) && (
+            <Card size="small" styles={{ body: { padding: 12 } }}>
+              <Space wrap>
+                <Button
+                  type={dateRange === '1d' ? 'primary' : 'default'}
+                  size="small"
+                  onClick={() => {
+                    const now = dayjs()
+                    const oneDayAgo = now.subtract(1, 'day')
+                    setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
+                    setDateRange('1d')
+                  }}
+                >
+                  1天
+                </Button>
+                <Button
+                  type={dateRange === '7d' ? 'primary' : 'default'}
+                  size="small"
+                  onClick={() => {
+                    const now = dayjs()
+                    const sevenDaysAgo = now.subtract(7, 'day')
+                    setCustomDateRange([sevenDaysAgo.startOf('day'), now.endOf('day')])
+                    setDateRange('7d')
+                  }}
+                >
+                  7天
+                </Button>
+                <Button
+                  type={dateRange === '30d' ? 'primary' : 'default'}
+                  size="small"
+                  onClick={() => {
+                    const now = dayjs()
+                    const thirtyDaysAgo = now.subtract(30, 'day')
+                    setCustomDateRange([thirtyDaysAgo.startOf('day'), now.endOf('day')])
+                    setDateRange('30d')
+                  }}
+                >
+                  30天
+                </Button>
+                <RangePicker
+                  size="small"
+                  value={customDateRange}
+                  onChange={(dates) => {
+                    if (dates) {
+                      const [start, end] = dates as [Dayjs, Dayjs]
+                      setCustomDateRange([start.startOf('day'), end.endOf('day')])
+                      setDateRange('custom')
+                    }
+                  }}
+                />
+              </Space>
+            </Card>
+          )}
+
+          {/* 搜索框 - 只在记录功能已开启时显示 */}
+          {(recordConfig?.enabled || groupedRecords.length > 0) && (
+            <Card size="small" styles={{ body: { padding: 12 } }}>
+              <Input
+                placeholder="搜索对话内容、项目名称..."
+                prefix={<SearchOutlined />}
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                allowClear
+              />
+            </Card>
+          )}
 
           {/* Session 列表 */}
           {loading ? (
@@ -910,69 +865,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               <Spin size="large" tip="加载中..." />
             </div>
           ) : groupedRecords.length === 0 ? (
-            recordConfig && !recordConfig.enabled ? (
-              // 记录功能未开启时的提示
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: 400,
-                padding: 60
-              }}>
-                <Card
-                  style={{
-                    maxWidth: 420,
-                    textAlign: 'center',
-                    border: 'none',
-                    boxShadow: darkMode
-                      ? '0 4px 24px rgba(0, 0, 0, 0.4)'
-                      : '0 4px 24px rgba(0, 0, 0, 0.06)',
-                  }}
-                >
-                  <div style={{
-                    background: themeVars.primaryGradient,
-                    width: 64,
-                    height: 64,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 24px',
-                    boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
-                  }}>
-                    <WarningOutlined style={{ fontSize: 32, color: themeVars.bgContainer }} />
-                  </div>
-
-                  <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
-                    记录功能未开启
-                  </Text>
-
-                  <Text type="secondary" style={{ fontSize: 14, display: 'block', marginBottom: 32, lineHeight: 1.6 }}>
-                    开启后即可记录和查看所有对话历史
-                  </Text>
-
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<SettingOutlined />}
-                    onClick={() => onOpenSettings?.()}
-                    block
-                    style={{
-                      height: 48,
-                      fontSize: 16,
-                      fontWeight: 500,
-                      borderRadius: 8,
-                      background: themeVars.primaryGradient,
-                      border: 'none'
-                    }}
-                  >
-                    前往设置开启
-                  </Button>
-                </Card>
-              </div>
-            ) : (
-              <Empty description="所选时间范围内没有记录" style={{ padding: 60 }} />
-            )
+            <Empty description="所选时间范围内没有记录" style={{ padding: 60 }} />
           ) : (
             <>
               <List
@@ -1058,6 +951,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
             </>
           )}
         </Space>
+        )}
       </div>
 
       {/* 层级 2: Session 详情弹窗 */}
@@ -1252,7 +1146,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                     }}
                   />
                 ) : (
-                  renderContent(selectedRecord.display)
+                  <SmartContent content={selectedRecord.display} darkMode={darkMode} />
                 )}
               </div>
 

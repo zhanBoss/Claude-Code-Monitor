@@ -126,5 +126,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   switchClaudeConfigBackup: (id: number) => ipcRenderer.invoke('switch-claude-config-backup', id),
   updateClaudeConfigBackupName: (id: number, name: string) =>
     ipcRenderer.invoke('update-claude-config-backup-name', id, name),
-  getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id)
+  getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id),
+
+  // 在外部浏览器中打开链接
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 })

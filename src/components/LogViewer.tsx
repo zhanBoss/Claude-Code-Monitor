@@ -8,8 +8,9 @@ import { ClaudeRecord, RecordConfig } from '../types'
 import { getThemeVars } from '../theme'
 import FileViewer from './FileViewer'
 import { replacePastedContents, formatPastedContentsForModal } from '../utils/promptFormatter'
+import SmartContent from './SmartContent'
 
-const { Text, Paragraph } = Typography
+const { Text } = Typography
 
 interface LogViewerProps {
   records: ClaudeRecord[]
@@ -645,28 +646,15 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
 
                           {/* Prompt 内容 */}
                           <div style={{ marginBottom: 8 }}>
-                            <Paragraph
-                              ellipsis={isPromptLong ? {
-                                rows: 3,
-                                expandable: false
-                              } : false}
-                              style={{
-                                fontSize: 14,
-                                color: themeVars.text,
-                                marginBottom: 0,
-                                cursor: isPromptLong ? 'pointer' : 'default',
-                                whiteSpace: 'pre-wrap',
-                                lineHeight: 1.6
-                              }}
-                              onClick={() => {
-                                if (isPromptLong) {
-                                  setPromptModalContent(fullPrompt)
-                                  setPromptModalVisible(true)
-                                }
-                              }}
-                            >
-                              {fullPrompt}
-                            </Paragraph>
+                            <SmartContent
+                              content={fullPrompt}
+                              darkMode={darkMode}
+                              maxLines={isPromptLong ? 3 : undefined}
+                              onClick={isPromptLong ? () => {
+                                setPromptModalContent(fullPrompt)
+                                setPromptModalVisible(true)
+                              } : undefined}
+                            />
                           </div>
 
                           {/* 底部信息栏 */}
@@ -860,13 +848,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           padding: '16px',
           background: themeVars.bgElevated,
           borderRadius: 8,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
           fontSize: 14,
           lineHeight: 1.6,
           color: themeVars.text
         }}>
-          {promptModalContent}
+          <SmartContent content={promptModalContent} darkMode={darkMode} />
         </div>
       </Modal>
 

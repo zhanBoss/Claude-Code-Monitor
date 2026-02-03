@@ -129,6 +129,8 @@ export interface ElectronAPI {
   switchClaudeConfigBackup: (id: number) => Promise<{ success: boolean; error?: string }>
   updateClaudeConfigBackupName: (id: number, name: string) => Promise<{ success: boolean; error?: string }>
   getClaudeConfigBackupContent: (id: number) => Promise<{ success: boolean; config?: string; error?: string }>
+  // 在外部浏览器中打开链接
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
 }
 
 // AI 总结请求参数
