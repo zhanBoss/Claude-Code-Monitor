@@ -394,39 +394,37 @@ async function processRecord(record: any, savePath: string) {
       }
     }
 
-    // 处理图片：等待并复制到保存目录
+    // 处理图片：只复制当前 prompt 使用的图片
     const images: string[] = []
 
-    // 使用全局变量跟踪已处理的图片，避免重复关联
-    if (!global.processedImages) {
-      global.processedImages = new Map<string, Set<string>>()
-    }
+    if (record.sessionId && record.display) {
+      // 从 display 中提取图片编号 [Image #N]
+      const imageMatches = record.display.match(/\[Image #(\d+)\]/g)
 
-    if (record.sessionId) {
-      const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
+      if (imageMatches && imageMatches.length > 0) {
+        const imageNumbers = imageMatches.map((match: string) => {
+          const num = match.match(/\d+/)
+          return num ? parseInt(num[0]) : null
+        }).filter((n: number | null) => n !== null) as number[]
 
-      // 等待图片目录创建（最多等待2秒）
-      let waitCount = 0
-      while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        waitCount++
-      }
+        const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
 
-      try {
-        if (fs.existsSync(imageCacheDir)) {
-          // 再等待一小段时间，确保图片文件写入完成
-          await new Promise(resolve => setTimeout(resolve, 200))
+        // 等待图片目录创建（最多等待2秒）
+        let waitCount = 0
+        while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          waitCount++
+        }
 
-          const imageFiles = fs.readdirSync(imageCacheDir).filter(f =>
-            f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif')
-          )
+        try {
+          if (fs.existsSync(imageCacheDir)) {
+            // 再等待一小段时间，确保图片文件写入完成
+            await new Promise(resolve => setTimeout(resolve, 200))
 
-          if (imageFiles.length > 0) {
-            // 获取该 session 已处理的图片集合
-            if (!global.processedImages.has(record.sessionId)) {
-              global.processedImages.set(record.sessionId, new Set())
-            }
-            const processedSet = global.processedImages.get(record.sessionId)!
+            // 读取目录下的所有图片文件
+            const allImageFiles = fs.readdirSync(imageCacheDir)
+              .filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif'))
+              .sort() // 按文件名排序
 
             // 创建图片保存目录
             const imagesDir = path.join(savePath, 'images', record.sessionId)
@@ -434,9 +432,13 @@ async function processRecord(record: any, savePath: string) {
               fs.mkdirSync(imagesDir, { recursive: true })
             }
 
-            // 只复制新增的图片（增量复制）
-            for (const imageFile of imageFiles) {
-              if (!processedSet.has(imageFile)) {
+            // 只复制当前 prompt 使用的图片
+            for (const imageNum of imageNumbers) {
+              // 图片编号从 1 开始，数组索引从 0 开始
+              const imageIndex = imageNum - 1
+
+              if (imageIndex >= 0 && imageIndex < allImageFiles.length) {
+                const imageFile = allImageFiles[imageIndex]
                 const srcPath = path.join(imageCacheDir, imageFile)
                 const destPath = path.join(imagesDir, imageFile)
 
@@ -445,16 +447,15 @@ async function processRecord(record: any, savePath: string) {
                     fs.copyFileSync(srcPath, destPath)
                   }
                   images.push(`images/${record.sessionId}/${imageFile}`)
-                  processedSet.add(imageFile)
                 } catch (err) {
                   console.error(`Failed to copy image ${imageFile}:`, err)
                 }
               }
             }
           }
+        } catch (err) {
+          console.error('Failed to process images:', err)
         }
-      } catch (err) {
-        console.error('Failed to process images:', err)
       }
     }
 
