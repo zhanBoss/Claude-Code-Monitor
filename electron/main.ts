@@ -341,12 +341,7 @@ function readNewLines(savePath: string) {
 }
 
 // 处理对话记录
-function processRecord(record: any, savePath: string) {
-  // 发送到渲染进程
-  if (mainWindow) {
-    mainWindow.webContents.send('new-record', record)
-  }
-
+async function processRecord(record: any, savePath: string) {
   // 保存到文件
   try {
     const timestamp = new Date(record.timestamp).toISOString()
@@ -384,7 +379,7 @@ function processRecord(record: any, savePath: string) {
       }
     }
 
-    // 处理图片：复制到保存目录
+    // 处理图片：等待并复制到保存目录
     const images: string[] = []
 
     // 使用全局变量跟踪已处理的图片，避免重复关联
@@ -395,8 +390,18 @@ function processRecord(record: any, savePath: string) {
     if (record.sessionId) {
       const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
 
+      // 等待图片目录创建（最多等待2秒）
+      let waitCount = 0
+      while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        waitCount++
+      }
+
       try {
         if (fs.existsSync(imageCacheDir)) {
+          // 再等待一小段时间，确保图片文件写入完成
+          await new Promise(resolve => setTimeout(resolve, 200))
+
           const imageFiles = fs.readdirSync(imageCacheDir).filter(f =>
             f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif')
           )
@@ -448,6 +453,17 @@ function processRecord(record: any, savePath: string) {
     }
 
     fs.appendFileSync(filePath, JSON.stringify(logEntry) + '\n', 'utf-8')
+
+    // 发送到渲染进程（在图片处理完成后）
+    // 构建完整的 record 对象，包含处理后的图片路径
+    const enrichedRecord = {
+      ...record,
+      images: images.length > 0 ? images.map(img => path.join(savePath, img)) : undefined
+    }
+
+    if (mainWindow) {
+      mainWindow.webContents.send('new-record', enrichedRecord)
+    }
   } catch (error) {
     console.error('Failed to save record:', error)
   }
