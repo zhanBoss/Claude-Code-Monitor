@@ -386,6 +386,12 @@ function processRecord(record: any, savePath: string) {
 
     // 处理图片：复制到保存目录
     const images: string[] = []
+
+    // 使用全局变量跟踪已处理的图片，避免重复关联
+    if (!global.processedImages) {
+      global.processedImages = new Map<string, Set<string>>()
+    }
+
     if (record.sessionId) {
       const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
 
@@ -396,24 +402,33 @@ function processRecord(record: any, savePath: string) {
           )
 
           if (imageFiles.length > 0) {
+            // 获取该 session 已处理的图片集合
+            if (!global.processedImages.has(record.sessionId)) {
+              global.processedImages.set(record.sessionId, new Set())
+            }
+            const processedSet = global.processedImages.get(record.sessionId)!
+
             // 创建图片保存目录
             const imagesDir = path.join(savePath, 'images', record.sessionId)
             if (!fs.existsSync(imagesDir)) {
               fs.mkdirSync(imagesDir, { recursive: true })
             }
 
-            // 复制图片
+            // 只复制新增的图片（增量复制）
             for (const imageFile of imageFiles) {
-              const srcPath = path.join(imageCacheDir, imageFile)
-              const destPath = path.join(imagesDir, imageFile)
+              if (!processedSet.has(imageFile)) {
+                const srcPath = path.join(imageCacheDir, imageFile)
+                const destPath = path.join(imagesDir, imageFile)
 
-              try {
-                if (!fs.existsSync(destPath)) {
-                  fs.copyFileSync(srcPath, destPath)
+                try {
+                  if (!fs.existsSync(destPath)) {
+                    fs.copyFileSync(srcPath, destPath)
+                  }
+                  images.push(`images/${record.sessionId}/${imageFile}`)
+                  processedSet.add(imageFile)
+                } catch (err) {
+                  console.error(`Failed to copy image ${imageFile}:`, err)
                 }
-                images.push(`images/${record.sessionId}/${imageFile}`)
-              } catch (err) {
-                console.error(`Failed to copy image ${imageFile}:`, err)
               }
             }
           }

@@ -28,8 +28,6 @@ interface GroupedRecord {
 function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
-  // 每个记录的资源展开状态
-  const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
 
   // 记录配置状态
@@ -75,16 +73,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       newExpanded.add(sessionId)
     }
     setExpandedSessions(newExpanded)
-  }
-
-  const toggleResources = (recordKey: string) => {
-    const newExpanded = new Set(expandedResources)
-    if (newExpanded.has(recordKey)) {
-      newExpanded.delete(recordKey)
-    } else {
-      newExpanded.add(recordKey)
-    }
-    setExpandedResources(newExpanded)
   }
 
   const formatTimeShort = (timestamp: number) => {
@@ -560,8 +548,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                 >
                   <Space vertical size="small" style={{ width: '100%' }}>
                     {displayRecords.map((record, recordIndex) => {
-                      const recordKey = `${group.sessionId}-${recordIndex}`
-                      const isResourceExpanded = expandedResources.has(recordKey)
                       const hasImages = record.images && record.images.length > 0
                       const hasCopyText = record.pastedContents && Object.keys(record.pastedContents).length > 0
                       const hasResources = hasImages || hasCopyText
@@ -587,10 +573,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                                   <Text
                                     style={{
                                       fontSize: 13,
-                                      color: themeVars.textSecondary,
-                                      cursor: 'pointer'
+                                      color: themeVars.textSecondary
                                     }}
-                                    onClick={() => toggleResources(recordKey)}
                                   >
                                     <FileImageOutlined style={{ marginRight: 4 }} />
                                     {record.images!.length}张图片
@@ -614,8 +598,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                                 )}
                               </Space>
 
-                              {/* 展开的图片网格 */}
-                              {hasImages && isResourceExpanded && (
+                              {/* 图片网格 - 默认显示 */}
+                              {hasImages && (
                                 <Image.PreviewGroup>
                                   <div style={{
                                     display: 'flex',
