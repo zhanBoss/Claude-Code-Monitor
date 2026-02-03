@@ -10,6 +10,9 @@ mac:
     - dmg
     - zip
   icon: build/icon.icns
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
 
 win:
   target:
