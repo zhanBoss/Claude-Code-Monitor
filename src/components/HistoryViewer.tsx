@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input, Image } from 'antd'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input, Image, Tooltip } from 'antd'
 import {
   FolderOpenOutlined,
   CopyOutlined,
@@ -12,7 +12,8 @@ import {
   WarningOutlined,
   SettingOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  CloseOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -53,6 +54,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   const [dateRange, setDateRange] = useState<DateRange>('1d')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [searchVisible, setSearchVisible] = useState(false)
+  const searchInputRef = useRef<any>(null)
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为初始加载
   const themeVars = getThemeVars(darkMode)
 
@@ -101,6 +104,29 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     loadHistoryMetadata()
     loadRecordConfig()
   }, [])
+
+  // 监听 Cmd+F 快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+F (Mac) 或 Ctrl+F (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchVisible(true)
+        // 延迟聚焦，确保输入框已渲染
+        setTimeout(() => {
+          searchInputRef.current?.focus()
+        }, 100)
+      }
+      // ESC 关闭搜索框
+      if (e.key === 'Escape' && searchVisible) {
+        setSearchVisible(false)
+        setSearchKeyword('')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchVisible])
 
   const loadRecordConfig = async () => {
     try {
@@ -703,10 +729,21 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         } as React.CSSProperties}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             共 {groupedRecords.length} 个会话，{sessions.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
-            {searchKeyword && ` (搜索"${searchKeyword}")`}
             {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
           </Text>
           <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <Tooltip title="搜索会话 (Cmd+F / Ctrl+F)">
+              <Button
+                icon={<SearchOutlined />}
+                onClick={() => {
+                  setSearchVisible(true)
+                  setTimeout(() => {
+                    searchInputRef.current?.focus()
+                  }, 100)
+                }}
+                size="small"
+              />
+            </Tooltip>
             <Button
               icon={<ReloadOutlined />}
               onClick={loadHistoryMetadata}
@@ -849,19 +886,6 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                   }}
                 />
               </Space>
-            </Card>
-          )}
-
-          {/* 搜索框 - 只在记录功能已开启时显示 */}
-          {(recordConfig?.enabled || groupedRecords.length > 0) && (
-            <Card size="small" styles={{ body: { padding: 12 } }}>
-              <Input
-                placeholder="搜索对话内容、项目名称..."
-                prefix={<SearchOutlined />}
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                allowClear
-              />
             </Card>
           )}
 
@@ -1233,6 +1257,140 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           {renderMarkdown(summaryContent)}
+        </div>
+      </ElectronModal>
+
+      {/* 搜索弹窗 */}
+      <ElectronModal
+        open={searchVisible}
+        onCancel={() => {
+          setSearchVisible(false)
+          setSearchKeyword('')
+        }}
+        footer={null}
+        closable={false}
+        width={640}
+        style={{ top: '15%' }}
+        styles={{
+          body: {
+            padding: 0
+          } as React.CSSProperties
+        }}
+      >
+        <div style={{ padding: '16px 20px' }}>
+          {/* 搜索输入框 */}
+          <div style={{ marginBottom: 16 }}>
+            <Input
+              ref={searchInputRef}
+              size="large"
+              placeholder="搜索项目名称、会话 ID..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
+              suffix={
+                searchKeyword && (
+                  <CloseOutlined
+                    style={{ fontSize: 14, color: themeVars.textTertiary, cursor: 'pointer' }}
+                    onClick={() => setSearchKeyword('')}
+                  />
+                )
+              }
+              style={{
+                borderRadius: 8,
+                fontSize: 15
+              }}
+            />
+          </div>
+
+          {/* 搜索结果列表 */}
+          <div style={{
+            maxHeight: '400px',
+            overflow: 'auto'
+          }}>
+            {!searchKeyword ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '30px 20px',
+                color: themeVars.textTertiary
+              }}>
+                <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
+                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索会话</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
+              </div>
+            ) : groupedRecords.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="未找到匹配的会话"
+                style={{ padding: '30px 0' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {groupedRecords.map((group, index) => (
+                  <div
+                    key={index}
+                    onClick={() => {
+                      handleSessionClick(group)
+                      setSearchVisible(false)
+                      setSearchKeyword('')
+                    }}
+                    style={{
+                      padding: '12px 16px',
+                      background: themeVars.bgSection,
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      border: `1px solid ${themeVars.borderSecondary}`,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = themeVars.bgElevated
+                      e.currentTarget.style.borderColor = themeVars.primary
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = themeVars.bgSection
+                      e.currentTarget.style.borderColor = themeVars.borderSecondary
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 12,
+                      color: themeVars.textSecondary,
+                      marginBottom: 6,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}>
+                      <ClockCircleOutlined style={{ fontSize: 11 }} />
+                      {formatTime(group.latestTimestamp)}
+                      <span style={{ opacity: 0.5 }}>·</span>
+                      <FolderOpenOutlined style={{ fontSize: 11 }} />
+                      {getProjectName(group.project)}
+                    </div>
+                    <div style={{
+                      fontSize: 13,
+                      color: themeVars.text,
+                      lineHeight: 1.6
+                    }}>
+                      {group.recordCount} 条对话
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 底部提示 */}
+          {searchKeyword && groupedRecords.length > 0 && (
+            <div style={{
+              marginTop: 12,
+              padding: '8px 12px',
+              background: themeVars.bgElevated,
+              borderRadius: 6,
+              fontSize: 12,
+              color: themeVars.textTertiary,
+              textAlign: 'center'
+            }}>
+              找到 {groupedRecords.length} 个匹配会话
+            </div>
+          )}
         </div>
       </ElectronModal>
     </div>
