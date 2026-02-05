@@ -20,6 +20,22 @@ interface VersionData {
 
 const changelog: VersionData[] = [
   {
+    version: '1.6.0',
+    date: '2026-02-05',
+    type: 'minor',
+    changes: [
+      { type: 'feat', description: '常用Prompt页面新增快捷搜索功能，支持 Cmd+F / Ctrl+F 快捷键' },
+      { type: 'feat', description: '搜索弹窗支持 Prompt 名称和内容搜索，关键词高亮显示' },
+      { type: 'feat', description: '点击搜索结果直接复制内容，按 ESC 快速关闭搜索' },
+      { type: 'refactor', description: '常用Prompt页面交互升级：移除复制按钮，点击卡片直接复制' },
+      { type: 'refactor', description: '添加 hover 和点击动画效果，卡片向右上角浮动' },
+      { type: 'refactor', description: '卡片采用阴影设计，操作按钮仅在 hover 时显示' },
+      { type: 'refactor', description: '复制成功显示浮层提示，带动画效果' },
+      { type: 'fix', description: '修复快捷键无法触发搜索弹窗的问题' },
+      { type: 'fix', description: '主列表不受搜索影响，始终显示完整数据' }
+    ]
+  },
+  {
     version: '1.5.0',
     date: '2026-02-05',
     type: 'minor',
