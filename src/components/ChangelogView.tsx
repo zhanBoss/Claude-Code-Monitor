@@ -20,6 +20,23 @@ interface VersionData {
 
 const changelog: VersionData[] = [
   {
+    version: '1.5.0',
+    date: '2026-02-05',
+    type: 'minor',
+    changes: [
+      { type: 'feat', description: '实时对话页面新增快捷搜索功能，支持 Cmd+F / Ctrl+F 快捷键' },
+      { type: 'feat', description: '居中弹窗式搜索界面，实时搜索 Prompt 内容，支持关键词高亮' },
+      { type: 'feat', description: '历史记录页面搜索功能全面升级，改为搜索 Prompt 内容' },
+      { type: 'feat', description: '搜索结果显示匹配上下文，点击直接查看详情' },
+      { type: 'refactor', description: '打开搜索时自动关闭所有其他弹窗，界面更清爽' },
+      { type: 'refactor', description: '搜索支持防抖（300ms），减少不必要的计算' },
+      { type: 'refactor', description: '封装 ElectronModal 组件，Modal 代码量减少 80%' },
+      { type: 'fix', description: '改进图片匹配逻辑，支持无标记的图片识别' },
+      { type: 'fix', description: '修复图片关联错误，只关联当前 prompt 使用的图片' },
+      { type: 'fix', description: '修复实时对话清空后刷新数据回显问题' }
+    ]
+  },
+  {
     version: '1.4.2',
     date: '2026-02-03',
     type: 'patch',

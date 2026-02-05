@@ -83,7 +83,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                 <Space direction="vertical" size={12} style={{ width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">版本</Text>
-                    <Text strong>1.4.0</Text>
+                    <Text strong>1.5.0</Text>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">作者</Text>
