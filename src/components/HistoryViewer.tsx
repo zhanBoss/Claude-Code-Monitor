@@ -201,7 +201,94 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     return sessions
   }, [sessions, customDateRange])
 
-  // 搜索过滤（只能按项目名搜索，因为没有加载完整内容）
+  // 搜索状态和结果
+  const [searching, setSearching] = useState(false)
+  const [promptSearchResults, setPromptSearchResults] = useState<Array<{
+    record: ClaudeRecord
+    sessionId: string
+    project: string
+    matchText: string
+  }>>([])
+
+  // 执行 Prompt 搜索
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchKeyword.trim()) {
+        setPromptSearchResults([])
+        return
+      }
+
+      setSearching(true)
+      try {
+        const keyword = searchKeyword.toLowerCase()
+        const results: Array<{
+          record: ClaudeRecord
+          sessionId: string
+          project: string
+          matchText: string
+        }> = []
+
+        // 遍历所有符合日期范围的会话
+        for (const session of filteredSessions) {
+          try {
+            // 加载会话的完整记录
+            const result = await window.electronAPI.readHistory()
+            if (!result.success || !result.records) continue
+
+            // 过滤出当前会话的记录
+            const sessionRecords = result.records.filter(
+              (r: ClaudeRecord) => r.sessionId === session.sessionId
+            )
+
+            // 搜索每条记录的 display 内容
+            sessionRecords.forEach((record: ClaudeRecord) => {
+              const content = record.display?.toLowerCase() || ''
+              if (content.includes(keyword)) {
+                // 获取匹配上下文
+                const index = content.indexOf(keyword)
+                const start = Math.max(0, index - 50)
+                const end = Math.min(content.length, index + keyword.length + 50)
+                let matchText = record.display?.substring(start, end) || ''
+
+                if (start > 0) matchText = '...' + matchText
+                if (end < content.length) matchText = matchText + '...'
+
+                results.push({
+                  record,
+                  sessionId: session.sessionId,
+                  project: session.project,
+                  matchText
+                })
+              }
+            })
+          } catch (error) {
+            console.error(`搜索会话 ${session.sessionId} 失败:`, error)
+          }
+        }
+
+        setPromptSearchResults(results)
+      } catch (error) {
+        console.error('搜索失败:', error)
+        setPromptSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }
+
+    // 防抖：延迟 300ms 执行搜索
+    const timer = setTimeout(performSearch, 300)
+    return () => clearTimeout(timer)
+  }, [searchKeyword, filteredSessions])
+
+  // 查看搜索结果详情
+  const handleViewSearchResult = (record: ClaudeRecord) => {
+    setSelectedRecord(record)
+    setRecordModalVisible(true)
+    setSearchVisible(false)
+    setSearchKeyword('')
+  }
+
+  // 原有的搜索过滤（保留用于列表过滤）
   const searchedSessions = useMemo(() => {
     if (!searchKeyword.trim()) {
       return filteredSessions
@@ -1283,7 +1370,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索项目名称、会话 ID..."
+              placeholder="搜索 Prompt 内容..."
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
@@ -1314,25 +1401,25 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                 color: themeVars.textTertiary
               }}>
                 <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
-                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索会话</div>
+                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索 Prompt 内容</div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
               </div>
-            ) : groupedRecords.length === 0 ? (
+            ) : searching ? (
+              <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                <Spin tip="搜索中..." />
+              </div>
+            ) : promptSearchResults.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="未找到匹配的会话"
+                description="未找到匹配的 Prompt"
                 style={{ padding: '30px 0' }}
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {groupedRecords.map((group, index) => (
+                {promptSearchResults.map((result, index) => (
                   <div
                     key={index}
-                    onClick={() => {
-                      handleSessionClick(group)
-                      setSearchVisible(false)
-                      setSearchKeyword('')
-                    }}
+                    onClick={() => handleViewSearchResult(result.record)}
                     style={{
                       padding: '12px 16px',
                       background: themeVars.bgSection,
@@ -1359,17 +1446,22 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                       gap: 8
                     }}>
                       <ClockCircleOutlined style={{ fontSize: 11 }} />
-                      {formatTime(group.latestTimestamp)}
+                      {formatTime(result.record.timestamp)}
                       <span style={{ opacity: 0.5 }}>·</span>
                       <FolderOpenOutlined style={{ fontSize: 11 }} />
-                      {getProjectName(group.project)}
+                      {getProjectName(result.project)}
                     </div>
                     <div style={{
                       fontSize: 13,
                       color: themeVars.text,
-                      lineHeight: 1.6
+                      lineHeight: 1.6,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
                     }}>
-                      {group.recordCount} 条对话
+                      {result.matchText}
                     </div>
                   </div>
                 ))}
@@ -1378,7 +1470,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           </div>
 
           {/* 底部提示 */}
-          {searchKeyword && groupedRecords.length > 0 && (
+          {promptSearchResults.length > 0 && (
             <div style={{
               marginTop: 12,
               padding: '8px 12px',
@@ -1388,7 +1480,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               color: themeVars.textTertiary,
               textAlign: 'center'
             }}>
-              找到 {groupedRecords.length} 个匹配会话
+              找到 {promptSearchResults.length} 条匹配结果
             </div>
           )}
         </div>
