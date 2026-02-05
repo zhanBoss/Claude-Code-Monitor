@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip, Input, AutoComplete } from 'antd'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip, Input } from 'antd'
 import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -494,93 +494,22 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         flexShrink: 0,
         WebkitAppRegion: 'drag'
       } as React.CSSProperties}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            共 {groupedRecords.length} 个会话，{records.length} 条记录
-          </Text>
-
-          {/* 搜索框 */}
-          {searchVisible && (
-            <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-              <AutoComplete
-                ref={searchInputRef}
-                style={{ width: 300 }}
-                value={searchKeyword}
-                onChange={setSearchKeyword}
-                placeholder="搜索 Prompt 内容 (Cmd+F / Ctrl+F)"
-                options={searchResults.map((result, index) => ({
-                  value: result.record.display || '',
-                  label: (
-                    <div
-                      key={index}
-                      onClick={() => handleViewSearchResult(result.record)}
-                      style={{
-                        padding: '4px 0',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{
-                        fontSize: 12,
-                        color: themeVars.textSecondary,
-                        marginBottom: 4
-                      }}>
-                        {formatTimeShort(result.record.timestamp)} · {getProjectName(result.project)}
-                      </div>
-                      <div style={{
-                        fontSize: 13,
-                        color: themeVars.text,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {result.matchText}
-                      </div>
-                    </div>
-                  )
-                }))}
-                notFoundContent={
-                  searchKeyword ? (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="未找到匹配的 Prompt"
-                      style={{ padding: '12px 0' }}
-                    />
-                  ) : null
-                }
-              >
-                <Input
-                  prefix={<SearchOutlined style={{ color: themeVars.textTertiary }} />}
-                  suffix={
-                    <CloseOutlined
-                      style={{ color: themeVars.textTertiary, cursor: 'pointer' }}
-                      onClick={() => {
-                        setSearchVisible(false)
-                        setSearchKeyword('')
-                      }}
-                    />
-                  }
-                  allowClear
-                />
-              </AutoComplete>
-            </div>
-          )}
-        </div>
-
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          共 {groupedRecords.length} 个会话，{records.length} 条记录
+        </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          {!searchVisible && (
-            <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
-              <Button
-                icon={<SearchOutlined />}
-                onClick={() => {
-                  setSearchVisible(true)
-                  setTimeout(() => {
-                    searchInputRef.current?.focus()
-                  }, 100)
-                }}
-                size="small"
-              />
-            </Tooltip>
-          )}
+          <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
+            <Button
+              icon={<SearchOutlined />}
+              onClick={() => {
+                setSearchVisible(true)
+                setTimeout(() => {
+                  searchInputRef.current?.focus()
+                }, 100)
+              }}
+              size="small"
+            />
+          </Tooltip>
           <Button
             type="primary"
             icon={<StarOutlined />}
@@ -1068,6 +997,142 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         onClose={() => setFileViewerVisible(false)}
         readOnly={fileViewerReadOnly}
       />
+
+      {/* 搜索弹窗 */}
+      <ElectronModal
+        open={searchVisible}
+        onCancel={() => {
+          setSearchVisible(false)
+          setSearchKeyword('')
+        }}
+        footer={null}
+        closable={false}
+        width={640}
+        style={{ top: '15%' }}
+        styles={{
+          body: {
+            padding: 0
+          } as React.CSSProperties
+        }}
+      >
+        <div style={{ padding: '16px 20px' }}>
+          {/* 搜索输入框 */}
+          <div style={{ marginBottom: 16 }}>
+            <Input
+              ref={searchInputRef}
+              size="large"
+              placeholder="搜索 Prompt 内容..."
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
+              suffix={
+                searchKeyword && (
+                  <CloseOutlined
+                    style={{ fontSize: 14, color: themeVars.textTertiary, cursor: 'pointer' }}
+                    onClick={() => setSearchKeyword('')}
+                  />
+                )
+              }
+              style={{
+                borderRadius: 8,
+                fontSize: 15
+              }}
+            />
+          </div>
+
+          {/* 搜索结果列表 */}
+          <div style={{
+            maxHeight: '60vh',
+            overflow: 'auto',
+            minHeight: searchKeyword ? 200 : 100
+          }}>
+            {!searchKeyword ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: themeVars.textTertiary
+              }}>
+                <SearchOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
+                <div style={{ fontSize: 13 }}>输入关键词搜索 Prompt 内容</div>
+                <div style={{ fontSize: 12, marginTop: 8 }}>提示：按 ESC 关闭搜索</div>
+              </div>
+            ) : searchResults.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="未找到匹配的 Prompt"
+                style={{ padding: '40px 0' }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {searchResults.map((result, index) => (
+                  <div
+                    key={index}
+                    onClick={() => handleViewSearchResult(result.record)}
+                    style={{
+                      padding: '12px 16px',
+                      background: themeVars.bgSection,
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      border: `1px solid ${themeVars.borderSecondary}`,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = themeVars.bgElevated
+                      e.currentTarget.style.borderColor = themeVars.primary
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = themeVars.bgSection
+                      e.currentTarget.style.borderColor = themeVars.borderSecondary
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 12,
+                      color: themeVars.textSecondary,
+                      marginBottom: 6,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}>
+                      <ClockCircleOutlined style={{ fontSize: 11 }} />
+                      {formatTimeShort(result.record.timestamp)}
+                      <span style={{ opacity: 0.5 }}>·</span>
+                      <FolderOpenOutlined style={{ fontSize: 11 }} />
+                      {getProjectName(result.project)}
+                    </div>
+                    <div style={{
+                      fontSize: 13,
+                      color: themeVars.text,
+                      lineHeight: 1.6,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {result.matchText}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 底部提示 */}
+          {searchResults.length > 0 && (
+            <div style={{
+              marginTop: 12,
+              padding: '8px 12px',
+              background: themeVars.bgElevated,
+              borderRadius: 6,
+              fontSize: 12,
+              color: themeVars.textTertiary,
+              textAlign: 'center'
+            }}>
+              找到 {searchResults.length} 条匹配结果
+            </div>
+          )}
+        </div>
+      </ElectronModal>
     </div>
   )
 }
