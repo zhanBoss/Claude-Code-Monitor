@@ -129,5 +129,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id),
 
   // 在外部浏览器中打开链接
-  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
+  // 常用命令管理
+  getCommonCommands: () => ipcRenderer.invoke('get-common-commands'),
+  addCommonCommand: (name: string, content: string) => ipcRenderer.invoke('add-common-command', name, content),
+  updateCommonCommand: (id: string, name: string, content: string) =>
+    ipcRenderer.invoke('update-common-command', id, name, content),
+  deleteCommonCommand: (id: string) => ipcRenderer.invoke('delete-common-command', id),
+  togglePinCommand: (id: string) => ipcRenderer.invoke('toggle-pin-command', id),
+  openCommonCommandsFile: () => ipcRenderer.invoke('open-common-commands-file')
 })

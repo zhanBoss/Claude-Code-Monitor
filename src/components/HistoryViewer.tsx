@@ -18,6 +18,7 @@ import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import { ClaudeRecord, RecordConfig, SessionMetadata } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -314,7 +315,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           cancelText: '取消',
           onOk: () => {
             onOpenSettings?.()
-          }
+          },
+          ...getElectronModalConfig()
         })
         return
       }
@@ -328,7 +330,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           cancelText: '取消',
           onOk: () => {
             onOpenSettings?.()
-          }
+          },
+          ...getElectronModalConfig()
         })
         return
       }
@@ -385,7 +388,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                   </p>
                 </div>
               ),
-              okText: '我知道了'
+              okText: '我知道了',
+              ...getElectronModalConfig()
             })
           } else if (error.includes('API Key')) {
             Modal.error({
@@ -401,7 +405,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               okText: '前往设置',
               onOk: () => {
                 onOpenSettings?.()
-              }
+              },
+              ...getElectronModalConfig()
             })
           } else {
             message.error(`总结失败: ${error}`, 5)
@@ -467,7 +472,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         } catch (error: any) {
           message.error(`删除失败: ${error?.message || '未知错误'}`)
         }
-      }
+      },
+      ...getElectronModalConfig()
     })
   }
 
@@ -955,7 +961,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       </div>
 
       {/* 层级 2: Session 详情弹窗 */}
-      <Modal
+      <ElectronModal
         title={
           <Space>
             <Tag color="blue">{selectedSession && getProjectName(selectedSession.project)}</Tag>
@@ -977,7 +983,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
             maxHeight: 'calc(100vh - 220px)',
             overflowY: 'auto',
             padding: '24px 24px 24px 24px'
-          }
+          } as React.CSSProperties
         }}
         zIndex={1001}
       >
@@ -1064,10 +1070,10 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
             />
           </Space>
         )}
-      </Modal>
+      </ElectronModal>
 
       {/* 层级 3: Record 详情弹窗 */}
-      <Modal
+      <ElectronModal
         title={
           <Space>
             <FileTextOutlined />
@@ -1101,7 +1107,12 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           </Button>
         ]}
         style={{ top: 60 }}
-        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
+        styles={{
+          body: {
+            maxHeight: 'calc(100vh - 260px)',
+            overflowY: 'auto'
+          } as React.CSSProperties
+        }}
         zIndex={1002}
       >
         {selectedRecord && (
@@ -1191,10 +1202,10 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
             )}
           </Space>
         )}
-      </Modal>
+      </ElectronModal>
 
       {/* AI 总结结果弹窗 */}
-      <Modal
+      <ElectronModal
         title={
           <Space>
             <StarOutlined style={{ color: themeVars.primary }} />
@@ -1213,12 +1224,17 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           </Button>
         ]}
         style={{ top: 60 }}
-        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
+        styles={{
+          body: {
+            maxHeight: 'calc(100vh - 260px)',
+            overflowY: 'auto'
+          } as React.CSSProperties
+        }}
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           {renderMarkdown(summaryContent)}
         </div>
-      </Modal>
+      </ElectronModal>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN'
 import MainLayout from './components/MainLayout'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
+import CommonPrompts from './components/CommonPrompts'
 import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
@@ -13,7 +14,7 @@ import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'settings' | 'changelog' | 'about'
+type Route = 'realtime' | 'history' | 'prompts' | 'settings' | 'changelog' | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -174,6 +175,12 @@ function App() {
         return (
           <HistoryViewer
             onOpenSettings={() => handleOpenSettings('record-control')}
+            darkMode={darkMode}
+          />
+        )
+      case 'prompts':
+        return (
+          <CommonPrompts
             darkMode={darkMode}
           />
         )

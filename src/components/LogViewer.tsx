@@ -9,6 +9,7 @@ import { getThemeVars } from '../theme'
 import FileViewer from './FileViewer'
 import { replacePastedContents, formatPastedContentsForModal } from '../utils/promptFormatter'
 import SmartContent from './SmartContent'
+import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 
 const { Text } = Typography
 
@@ -172,7 +173,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           cancelText: '取消',
           onOk: () => {
             onOpenSettings?.()
-          }
+          },
+          ...getElectronModalConfig()
         })
         setSummarizing(false)
         return
@@ -187,7 +189,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           cancelText: '取消',
           onOk: () => {
             onOpenSettings?.()
-          }
+          },
+          ...getElectronModalConfig()
         })
         setSummarizing(false)
         return
@@ -231,7 +234,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                   </p>
                 </div>
               ),
-              okText: '我知道了'
+              okText: '我知道了',
+              ...getElectronModalConfig()
             })
           } else if (error.includes('API Key')) {
             Modal.error({
@@ -247,7 +251,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
               okText: '前往设置',
               onOk: () => {
                 onOpenSettings?.()
-              }
+              },
+              ...getElectronModalConfig()
             })
           } else {
             message.error(`总结失败: ${error}`, 5)
@@ -754,7 +759,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       </div>
 
       {/* AI 总结结果弹窗 */}
-      <Modal
+      <ElectronModal
         title={
           <Space>
             <StarOutlined style={{ color: themeVars.primary }} />
@@ -781,7 +786,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           </Button>
         ]}
         style={{ top: 60 }}
-        styles={{ body: { maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' } }}
+        styles={{
+          body: {
+            maxHeight: 'calc(100vh - 260px)',
+            overflowY: 'auto'
+          } as React.CSSProperties
+        }}
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           <ReactMarkdown
@@ -828,10 +838,10 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
             {summaryContent}
           </ReactMarkdown>
         </div>
-      </Modal>
+      </ElectronModal>
 
       {/* Prompt 详情弹窗 */}
-      <Modal
+      <ElectronModal
         title="Prompt 详情"
         open={promptModalVisible}
         onCancel={() => setPromptModalVisible(false)}
@@ -841,7 +851,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           body: {
             maxHeight: '70vh',
             overflow: 'auto'
-          }
+          } as React.CSSProperties
         }}
       >
         <div style={{
@@ -854,10 +864,10 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         }}>
           <SmartContent content={promptModalContent} darkMode={darkMode} />
         </div>
-      </Modal>
+      </ElectronModal>
 
       {/* Copy Text 详情弹窗 */}
-      <Modal
+      <ElectronModal
         title="Copy Text 详情"
         open={copyTextModalVisible}
         onCancel={() => setCopyTextModalVisible(false)}
@@ -867,7 +877,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           body: {
             maxHeight: '70vh',
             overflow: 'auto'
-          }
+          } as React.CSSProperties
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -892,7 +902,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
             </div>
           ))}
         </div>
-      </Modal>
+      </ElectronModal>
 
       {/* 文件查看器 */}
       <FileViewer

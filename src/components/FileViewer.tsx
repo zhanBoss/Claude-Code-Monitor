@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, message, Space } from 'antd'
+import { Button, message, Space } from 'antd'
 import { SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
+import ElectronModal from './ElectronModal'
 
 interface FileViewerProps {
   filePath: string
@@ -115,7 +116,7 @@ function FileViewer({
   }, [visible, filePath])
 
   return (
-    <Modal
+    <ElectronModal
       title={
         <Space>
           <span>{readOnly ? '查看文件' : '编辑文件'}</span>
@@ -189,7 +190,7 @@ function FileViewer({
           automaticLayout: true
         }}
       />
-    </Modal>
+    </ElectronModal>
   )
 }
 

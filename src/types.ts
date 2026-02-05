@@ -21,6 +21,16 @@ export interface RecordConfig {
   savePath: string
 }
 
+// 常用命令
+export interface CommonCommand {
+  id: string
+  name: string
+  content: string
+  pinned: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 // AI 提供商配置
 export interface ProviderConfig {
   apiKey: string
@@ -131,6 +141,13 @@ export interface ElectronAPI {
   getClaudeConfigBackupContent: (id: number) => Promise<{ success: boolean; config?: string; error?: string }>
   // 在外部浏览器中打开链接
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+  // 常用命令管理
+  getCommonCommands: () => Promise<CommonCommand[]>
+  addCommonCommand: (name: string, content: string) => Promise<{ success: boolean; command?: CommonCommand; error?: string }>
+  updateCommonCommand: (id: string, name: string, content: string) => Promise<{ success: boolean; error?: string }>
+  deleteCommonCommand: (id: string) => Promise<{ success: boolean; error?: string }>
+  togglePinCommand: (id: string) => Promise<{ success: boolean; error?: string }>
+  openCommonCommandsFile: () => Promise<{ success: boolean; error?: string }>
 }
 
 // AI 总结请求参数

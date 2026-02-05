@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Modal, Button, message, Space } from 'antd'
-import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined, CloseOutlined } from '@ant-design/icons'
+import { Button, message, Space } from 'antd'
+import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
+import ElectronModal from './ElectronModal'
 
 interface ConfigFileEditorProps {
   title: string
@@ -30,12 +31,10 @@ function ConfigFileEditor({
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // 加载配置
   const handleLoad = async () => {
     setLoading(true)
     try {
       const content = await onLoad()
-      // 尝试格式化 JSON
       try {
         const formatted = JSON.stringify(JSON.parse(content), null, 2)
         setEditedConfig(formatted)
@@ -49,14 +48,11 @@ function ConfigFileEditor({
     }
   }
 
-  // 保存配置
   const handleSave = async () => {
     setSaving(true)
     try {
-      // 验证 JSON
       JSON.parse(editedConfig)
       await onSave(editedConfig)
-      // 不在这里显示成功消息，让父组件处理
       onClose()
     } catch (e: any) {
       if (e instanceof SyntaxError) {
@@ -69,7 +65,6 @@ function ConfigFileEditor({
     }
   }
 
-  // 格式化
   const handleFormat = () => {
     try {
       const formatted = JSON.stringify(JSON.parse(editedConfig), null, 2)
@@ -80,7 +75,6 @@ function ConfigFileEditor({
     }
   }
 
-  // 打开文件夹
   const handleOpenFolder = async () => {
     if (onOpenFolder) {
       try {
@@ -92,7 +86,6 @@ function ConfigFileEditor({
     }
   }
 
-  // 当弹窗打开时自动加载内容
   useEffect(() => {
     if (visible) {
       handleLoad()
@@ -100,7 +93,7 @@ function ConfigFileEditor({
   }, [visible])
 
   return (
-    <Modal
+    <ElectronModal
       title={
         <Space direction="vertical" size={0}>
           <Space>
@@ -115,14 +108,11 @@ function ConfigFileEditor({
       open={visible}
       onCancel={onClose}
       closable={true}
-      closeIcon={<CloseOutlined onClick={(e) => {
-        e.stopPropagation()
-        onClose()
-      }} />}
       maskClosable={true}
       keyboard={true}
-      destroyOnClose={false}
+      destroyOnClose={true}
       width="70%"
+      zIndex={99999}
       footer={[
         onOpenFolder && (
           <Button key="folder" icon={<FolderOpenOutlined />} onClick={handleOpenFolder}>
@@ -149,9 +139,13 @@ function ConfigFileEditor({
         </Button>
       ]}
       style={{ top: 40 }}
-      styles={{ body: { padding: 0 } }}
+      styles={{
+        body: {
+          padding: 0
+        } as React.CSSProperties
+      }}
     >
-      <div style={{ height: 500, border: `1px solid ${themeVars.border}` }}>
+      <div style={{ height: 500, border: `1px solid ${themeVars.border}` } as React.CSSProperties}>
         <Editor
           height="100%"
           defaultLanguage="json"
@@ -170,7 +164,7 @@ function ConfigFileEditor({
           }}
         />
       </div>
-    </Modal>
+    </ElectronModal>
   )
 }
 

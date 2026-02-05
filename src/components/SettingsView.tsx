@@ -19,6 +19,7 @@ import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
 import ConfigEditor, { ConfigEditorRef } from './ConfigEditor'
 import RecordControl, { RecordControlRef } from './RecordControl'
+import { getElectronModalConfig } from './ElectronModal'
 
 const { Text, Link } = Typography
 
@@ -278,11 +279,12 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
       onOk: async () => {
         try {
           await window.electronAPI.uninstallApp()
-          message.success('应用已卸�')
+          message.success('应用已卸载')
         } catch (error: any) {
           message.error(`卸载失败: ${error?.message || '未知错误'}`)
         }
-      }
+      },
+      ...getElectronModalConfig()
     })
   }
 

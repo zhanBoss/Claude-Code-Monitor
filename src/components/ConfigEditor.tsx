@@ -1,5 +1,5 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { Button, Spin, Space, Typography, Modal, message } from 'antd'
+import { Button, Spin, Space, Typography, message } from 'antd'
 import {
   EditOutlined,
   SaveOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
+import ElectronModal from './ElectronModal'
 
 const { Text } = Typography
 
@@ -187,7 +188,7 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
       </Space>
 
       {/* 编辑 Modal */}
-      <Modal
+      <ElectronModal
         title={
           <Space>
             <CodeOutlined />
@@ -236,7 +237,11 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
           </Button>
         ]}
         style={{ top: 40 }}
-        styles={{ body: { padding: 0 } }}
+        styles={{
+          body: {
+            padding: 0
+          } as React.CSSProperties
+        }}
       >
         <div style={{ height: 500, border: `1px solid ${themeVars.border}` }}>
           <Editor
@@ -257,7 +262,7 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
             }}
           />
         </div>
-      </Modal>
+      </ElectronModal>
     </>
   )
 })

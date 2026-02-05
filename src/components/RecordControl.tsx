@@ -1,7 +1,8 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, Modal, message } from 'antd'
+import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, message, Modal } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
+import { getElectronModalConfig } from './ElectronModal'
 
 const { Title, Text } = Typography
 
@@ -108,7 +109,8 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
         } catch (error: any) {
           message.error(error?.message || '清除失败')
         }
-      }
+      },
+      ...getElectronModalConfig()
     })
   }
 

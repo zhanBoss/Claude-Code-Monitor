@@ -1,5 +1,5 @@
 import { Menu } from 'antd'
-import { ThunderboltOutlined, ClockCircleOutlined, SettingOutlined, FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { ThunderboltOutlined, ClockCircleOutlined, StarOutlined, SettingOutlined, FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
 
 interface SidebarProps {
@@ -21,6 +21,11 @@ function Sidebar({ currentRoute, onNavigate, darkMode }: SidebarProps) {
       key: 'history',
       icon: <ClockCircleOutlined />,
       label: '历史记录'
+    },
+    {
+      key: 'prompts',
+      icon: <StarOutlined />,
+      label: '常用Prompt'
     },
     {
       key: 'settings',

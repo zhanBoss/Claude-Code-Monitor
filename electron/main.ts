@@ -1950,6 +1950,118 @@ ipcMain.handle('get-claude-config-backup-content', async (_, id: number) => {
   }
 })
 
+// ==================== 常用命令管理 ====================
+
+// 获取所有常用命令
+ipcMain.handle('get-common-commands', async () => {
+  try {
+    const commands = store.get('commonCommands', []) as any[]
+    return commands
+  } catch (error) {
+    console.error('获取常用命令失败:', error)
+    return []
+  }
+})
+
+// 添加常用命令
+ipcMain.handle('add-common-command', async (_, name: string, content: string) => {
+  try {
+    const commands = store.get('commonCommands', []) as any[]
+    const newCommand = {
+      id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      content,
+      pinned: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+
+    commands.push(newCommand)
+    store.set('commonCommands', commands)
+
+    return { success: true, command: newCommand }
+  } catch (error) {
+    console.error('添加常用命令失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 更新常用命令
+ipcMain.handle('update-common-command', async (_, id: string, name: string, content: string) => {
+  try {
+    const commands = store.get('commonCommands', []) as any[]
+    const commandIndex = commands.findIndex(cmd => cmd.id === id)
+
+    if (commandIndex === -1) {
+      return { success: false, error: '命令不存在' }
+    }
+
+    commands[commandIndex] = {
+      ...commands[commandIndex],
+      name,
+      content,
+      updatedAt: Date.now()
+    }
+
+    store.set('commonCommands', commands)
+    return { success: true }
+  } catch (error) {
+    console.error('更新常用命令失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 删除常用命令
+ipcMain.handle('delete-common-command', async (_, id: string) => {
+  try {
+    const commands = store.get('commonCommands', []) as any[]
+    const filteredCommands = commands.filter(cmd => cmd.id !== id)
+
+    store.set('commonCommands', filteredCommands)
+    return { success: true }
+  } catch (error) {
+    console.error('删除常用命令失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 切换置顶状态
+ipcMain.handle('toggle-pin-command', async (_, id: string) => {
+  try {
+    const commands = store.get('commonCommands', []) as any[]
+    const commandIndex = commands.findIndex(cmd => cmd.id === id)
+
+    if (commandIndex === -1) {
+      return { success: false, error: '命令不存在' }
+    }
+
+    commands[commandIndex] = {
+      ...commands[commandIndex],
+      pinned: !commands[commandIndex].pinned,
+      updatedAt: Date.now()
+    }
+
+    store.set('commonCommands', commands)
+    return { success: true }
+  } catch (error) {
+    console.error('切换置顶失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 打开常用命令配置文件
+ipcMain.handle('open-common-commands-file', async () => {
+  try {
+    const configPath = store.path
+    // 在默认编辑器中打开配置文件
+    await shell.openPath(configPath)
+    return { success: true }
+  } catch (error) {
+    console.error('打开配置文件失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // ==================== 初始化 ====================
 
 // 初始化时检查是否需要启动监控
