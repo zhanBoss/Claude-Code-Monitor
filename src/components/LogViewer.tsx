@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip } from 'antd'
-import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip, Input, AutoComplete } from 'antd'
+import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -54,6 +54,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
   const [copyTextModalVisible, setCopyTextModalVisible] = useState(false)
   const [copyTextModalContent, setCopyTextModalContent] = useState<Record<string, any>>({})
 
+  // 搜索相关状态
+  const [searchVisible, setSearchVisible] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const searchInputRef = useRef<any>(null)
+
   // 加载记录配置
   useEffect(() => {
     const loadConfig = async () => {
@@ -66,6 +71,29 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     }
     loadConfig()
   }, [])
+
+  // 监听 Cmd+F 快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+F (Mac) 或 Ctrl+F (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchVisible(true)
+        // 延迟聚焦，确保输入框已渲染
+        setTimeout(() => {
+          searchInputRef.current?.focus()
+        }, 100)
+      }
+      // ESC 关闭搜索框
+      if (e.key === 'Escape' && searchVisible) {
+        setSearchVisible(false)
+        setSearchKeyword('')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchVisible])
 
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions)
@@ -150,6 +178,51 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     setViewingFilePath(filePath)
     setFileViewerReadOnly(readOnly)
     setFileViewerVisible(true)
+  }
+
+  // 搜索 Prompt 内容
+  const searchResults = useMemo(() => {
+    if (!searchKeyword.trim()) return []
+
+    const keyword = searchKeyword.toLowerCase()
+    const results: Array<{
+      record: ClaudeRecord
+      sessionId: string
+      project: string
+      matchText: string
+    }> = []
+
+    // 搜索所有记录的 display 内容
+    records.forEach(record => {
+      const content = record.display?.toLowerCase() || ''
+      if (content.includes(keyword)) {
+        // 获取匹配上下文（前后50个字符）
+        const index = content.indexOf(keyword)
+        const start = Math.max(0, index - 50)
+        const end = Math.min(content.length, index + keyword.length + 50)
+        let matchText = record.display?.substring(start, end) || ''
+
+        if (start > 0) matchText = '...' + matchText
+        if (end < content.length) matchText = matchText + '...'
+
+        results.push({
+          record,
+          sessionId: record.sessionId || `single-${record.timestamp}`,
+          project: record.project,
+          matchText
+        })
+      }
+    })
+
+    return results
+  }, [records, searchKeyword])
+
+  // 查看搜索结果详情
+  const handleViewSearchResult = (record: ClaudeRecord) => {
+    setPromptModalContent(record.display || '')
+    setPromptModalVisible(true)
+    setSearchVisible(false)
+    setSearchKeyword('')
   }
 
   // 处理当前对话总结
@@ -421,10 +494,93 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
         flexShrink: 0,
         WebkitAppRegion: 'drag'
       } as React.CSSProperties}>
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {groupedRecords.length} 个会话，{records.length} 条记录
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            共 {groupedRecords.length} 个会话，{records.length} 条记录
+          </Text>
+
+          {/* 搜索框 */}
+          {searchVisible && (
+            <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+              <AutoComplete
+                ref={searchInputRef}
+                style={{ width: 300 }}
+                value={searchKeyword}
+                onChange={setSearchKeyword}
+                placeholder="搜索 Prompt 内容 (Cmd+F / Ctrl+F)"
+                options={searchResults.map((result, index) => ({
+                  value: result.record.display || '',
+                  label: (
+                    <div
+                      key={index}
+                      onClick={() => handleViewSearchResult(result.record)}
+                      style={{
+                        padding: '4px 0',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{
+                        fontSize: 12,
+                        color: themeVars.textSecondary,
+                        marginBottom: 4
+                      }}>
+                        {formatTimeShort(result.record.timestamp)} · {getProjectName(result.project)}
+                      </div>
+                      <div style={{
+                        fontSize: 13,
+                        color: themeVars.text,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {result.matchText}
+                      </div>
+                    </div>
+                  )
+                }))}
+                notFoundContent={
+                  searchKeyword ? (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="未找到匹配的 Prompt"
+                      style={{ padding: '12px 0' }}
+                    />
+                  ) : null
+                }
+              >
+                <Input
+                  prefix={<SearchOutlined style={{ color: themeVars.textTertiary }} />}
+                  suffix={
+                    <CloseOutlined
+                      style={{ color: themeVars.textTertiary, cursor: 'pointer' }}
+                      onClick={() => {
+                        setSearchVisible(false)
+                        setSearchKeyword('')
+                      }}
+                    />
+                  }
+                  allowClear
+                />
+              </AutoComplete>
+            </div>
+          )}
+        </div>
+
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          {!searchVisible && (
+            <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
+              <Button
+                icon={<SearchOutlined />}
+                onClick={() => {
+                  setSearchVisible(true)
+                  setTimeout(() => {
+                    searchInputRef.current?.focus()
+                  }, 100)
+                }}
+                size="small"
+              />
+            </Tooltip>
+          )}
           <Button
             type="primary"
             icon={<StarOutlined />}
