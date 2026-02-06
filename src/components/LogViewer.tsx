@@ -12,6 +12,7 @@ import { replacePastedContents } from '../utils/promptFormatter'
 import SmartContent from './SmartContent'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import CopyTextModal from './CopyTextModal'
+import FormattedPromptModal from './FormattedPromptModal'
 
 const { Text } = Typography
 
@@ -772,7 +773,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                                 setPromptModalVisible(true)
                               } : undefined}
                               hasPastedContents={hasCopyText}
-                              onPastedTextClick={(pastedTextKey) => {
+                              onPastedTextClick={(_pastedTextKey) => {
                                 // 打开 Copy Text 弹窗并滚动到对应的内容
                                 setCopyTextModalContent(record.pastedContents || {})
                                 setCopyTextModalVisible(true)
@@ -971,35 +972,13 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         </div>
       </ElectronModal>
 
-      {/* Prompt 详情弹窗 */}
-      <ElectronModal
-        title="Prompt 详情"
-        open={promptModalVisible}
-        onCancel={() => setPromptModalVisible(false)}
-        footer={null}
-        width={800}
-        styles={{
-          body: {
-            maxHeight: '70vh',
-            overflow: 'auto'
-          } as React.CSSProperties
-        }}
-      >
-        <div style={{
-          padding: '16px',
-          background: themeVars.bgElevated,
-          borderRadius: 8,
-          fontSize: 14,
-          lineHeight: 1.6,
-          color: themeVars.text
-        }}>
-          <SmartContent
-            content={promptModalContent}
-            darkMode={darkMode}
-            hasPastedContents={false}
-          />
-        </div>
-      </ElectronModal>
+      {/* Prompt 详情弹窗 - 使用 AI 格式化 */}
+      <FormattedPromptModal
+        visible={promptModalVisible}
+        onClose={() => setPromptModalVisible(false)}
+        content={promptModalContent}
+        darkMode={darkMode}
+      />
 
       {/* Copy Text 详情弹窗 */}
       <CopyTextModal

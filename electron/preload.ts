@@ -165,5 +165,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.removeListener('chat-stream-error', errorListener)
       }
     })
-  }
+  },
+
+  // AI 格式化 Prompt
+  formatPrompt: (content: string, contentHash?: string) =>
+    ipcRenderer.invoke('format-prompt', { content, contentHash })
 })

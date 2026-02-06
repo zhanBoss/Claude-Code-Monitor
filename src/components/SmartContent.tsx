@@ -146,7 +146,7 @@ function SmartContent({ content, darkMode, maxLines, onClick, onPastedTextClick,
     // URL 正则表达式
     const urlRegex = /(https?:\/\/[^\s]+)/g
     // Pasted text 占位符正则：[Pasted text #N] 或 [Pasted text #N +X lines]
-    const pastedTextRegex = /\[Pasted text #(\d+)(?:\s+\+\d+\s+lines)?\]/g
+    // const pastedTextRegex = /\[Pasted text #(\d+)(?:\s+\+\d+\s+lines)?\]/g
 
     // 合并两个正则，按出现顺序分割
     const combinedRegex = /(https?:\/\/[^\s]+|\[Pasted text #\d+(?:\s+\+\d+\s+lines)?\])/g

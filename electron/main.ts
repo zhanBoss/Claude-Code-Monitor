@@ -559,9 +559,10 @@ async function processRecord(record: any, savePath: string) {
     fs.appendFileSync(filePath, JSON.stringify(logEntry) + "\n", "utf-8");
 
     // 发送到渲染进程（在图片处理完成后）
-    // 构建完整的 record 对象，包含相对路径的图片
+    // 构建完整的 record 对象，包含相对路径的图片和展开后的 pastedContents
     const enrichedRecord = {
       ...record,
+      pastedContents: expandedPastedContents,
       images: images.length > 0 ? images : undefined,
     };
 
@@ -2418,6 +2419,165 @@ ipcMain.handle(
         });
     } catch (error: any) {
       event.sender.send("chat-stream-error", error.message || "对话失败");
+    }
+  },
+);
+
+// AI 格式化 Prompt（保持内容不变，转换为结构化 Markdown）
+ipcMain.handle(
+  "format-prompt",
+  async (
+    event,
+    request: {
+      content: string;
+      contentHash?: string; // 用于缓存
+    },
+  ): Promise<{ success: boolean; formatted?: string; error?: string }> => {
+    try {
+      const aiSettings = store.get("ai") as any;
+
+      // 检查 AI 功能和格式化开关
+      if (!aiSettings || !aiSettings.enabled) {
+        return { success: false, error: "AI 功能未启用" };
+      }
+
+      if (!aiSettings.autoFormatPrompt) {
+        return { success: false, error: "自动格式化功能未启用" };
+      }
+
+      // 检查缓存
+      if (request.contentHash) {
+        const cacheKey = `formatted_${request.contentHash}`;
+        const cached = store.get(cacheKey) as string | undefined;
+        if (cached) {
+          return { success: true, formatted: cached };
+        }
+      }
+
+      const provider: "groq" | "deepseek" | "gemini" | "custom" =
+        aiSettings.provider || "deepseek";
+      const currentConfig = aiSettings.providers?.[provider];
+
+      if (!currentConfig || !currentConfig.apiKey) {
+        return { success: false, error: "AI 配置不完整" };
+      }
+
+      // 构建格式化 system prompt
+      const systemPrompt = `你是一个专业的 Markdown 格式化助手。请将用户提供的内容转换为结构化的 Markdown 格式。
+
+严格要求：
+1. **保持内容完全不变** - 不要修改、删除或添加任何实质性内容
+2. **识别并标记代码块** - 将代码片段用 \`\`\`语言名 包裹，自动识别语言（如 javascript, python, json, bash 等）
+3. **识别结构** - 适当添加标题（#）、列表（- 或 1.）、引用（>）等 Markdown 标记
+4. **保留原有格式** - 已有的换行、空行、缩进尽量保留
+5. **不要添加任何说明** - 直接输出格式化后的 Markdown，不要添加"以下是格式化后的内容"等说明
+
+示例：
+输入：请帮我写一个函数 function add(a, b) { return a + b }
+输出：
+请帮我写一个函数
+
+\`\`\`javascript
+function add(a, b) {
+  return a + b;
+}
+\`\`\``;
+
+      const timeout = aiSettings.formatTimeout || 15000; // 默认15秒超时
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      let formatted = "";
+
+      // Gemini 使用非流式模式
+      if (provider === "gemini") {
+        const response = await httpRequest<Response>({
+          url: `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: systemPrompt + "\n\n--- 需要格式化的内容 ---\n\n" + request.content,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1, // 低温度，确保准确性
+              maxOutputTokens: 4000,
+            },
+          }),
+          signal: controller.signal,
+          webContents: event.sender,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          return { success: false, error: "Gemini API 调用失败" };
+        }
+
+        const data = await response.json();
+        formatted = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      } else {
+        // OpenAI 兼容格式 (Groq, DeepSeek, 自定义)
+        const response = await httpRequest<Response>({
+          url: `${currentConfig.apiBaseUrl}/chat/completions`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentConfig.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: currentConfig.model,
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt,
+              },
+              {
+                role: "user",
+                content: request.content,
+              },
+            ],
+            temperature: 0.1, // 低温度，确保准确性
+            max_tokens: 4000,
+          }),
+          signal: controller.signal,
+          webContents: event.sender,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          return { success: false, error: "API 调用失败" };
+        }
+
+        const data = await response.json();
+        formatted = data.choices?.[0]?.message?.content || "";
+      }
+
+      if (!formatted) {
+        return { success: false, error: "格式化结果为空" };
+      }
+
+      // 缓存结果
+      if (request.contentHash) {
+        const cacheKey = `formatted_${request.contentHash}`;
+        store.set(cacheKey, formatted);
+      }
+
+      return { success: true, formatted: formatted.trim() };
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        return { success: false, error: "格式化超时" };
+      }
+      return { success: false, error: error.message || "格式化失败" };
     }
   },
 );

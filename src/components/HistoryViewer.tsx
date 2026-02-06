@@ -603,67 +603,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     })
   }
 
-  const renderPastedContent = (content: any) => {
-    if (!content) return null
-
-    if (content.type === 'image' && content.data) {
-      return (
-        <img
-          src={`data:image/png;base64,${content.data}`}
-          alt="Pasted content"
-          style={{
-            maxWidth: '100%',
-            height: 'auto',
-            borderRadius: 4,
-            border: `1px solid ${themeVars.border}`,
-            marginTop: 8
-          }}
-        />
-      )
-    }
-
-    if (typeof content === 'string') {
-      return (
-        <div
-          style={{
-            marginTop: 8,
-            padding: 8,
-            background: themeVars.codeBg,
-            borderRadius: 4,
-            fontSize: 12,
-            fontFamily: 'monospace'
-          }}
-        >
-          {content}
-        </div>
-      )
-    }
-
-    // 处理新格式的粘贴内容（包含 content 字段）
-    if (content && typeof content === 'object' && content.content) {
-      return (
-        <div
-          style={{
-            marginTop: 8,
-            padding: 12,
-            background: themeVars.codeBg,
-            borderRadius: 4,
-            border: `1px solid ${themeVars.border}`
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-            📎 粘贴内容 #{content.id}
-          </Text>
-          <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-            {content.content}
-          </div>
-        </div>
-      )
-    }
-
-    return null
-  }
-
   // 图片组件 - 使用 Ant Design Image
   const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
     const [imageData, setImageData] = useState<string | null>(null)
@@ -1344,7 +1283,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                 content={selectedRecord.display}
                 darkMode={darkMode}
                 hasPastedContents={selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0}
-                onPastedTextClick={(pastedTextKey) => {
+                onPastedTextClick={(_pastedTextKey) => {
                   // 打开 Copy Text 弹窗
                   setCopyTextModalContent(selectedRecord.pastedContents || {})
                   setCopyTextModalVisible(true)

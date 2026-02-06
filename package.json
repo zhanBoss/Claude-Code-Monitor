@@ -49,9 +49,12 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@ant-design/x": "^2.2.2",
     "@monaco-editor/react": "^4.7.0",
+    "@types/crypto-js": "^4.2.2",
     "@types/react-highlight-words": "^0.20.1",
     "antd": "^6.2.2",
+    "crypto-js": "^4.2.0",
     "dayjs": "^1.11.19",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.1.0",

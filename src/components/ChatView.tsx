@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { Input, Button, Select, message, Typography, Spin, Tag, Tooltip, Segmented } from 'antd'
+import { Input, Button, Select, message, Typography, Spin, Tag, Tooltip, Segmented, Modal } from 'antd'
+import { Bubble } from '@ant-design/x'
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   SendOutlined,
   ClearOutlined,
   RobotOutlined,
   UserOutlined,
-  DeleteOutlined,
   SettingOutlined,
   FileTextOutlined,
   SearchOutlined,
@@ -14,7 +17,9 @@ import {
   ApiOutlined,
   ThunderboltOutlined,
   StarOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  CopyOutlined,
+  CheckOutlined
 } from '@ant-design/icons'
 import { ChatMessage, CommonCommand, AISettings, ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
@@ -32,6 +37,230 @@ interface ChatViewProps {
   initialPrompt?: string | null
   onInitialPromptUsed?: () => void
   realtimeRecords?: ClaudeRecord[]
+}
+
+/* Avatar 组件 */
+const ChatAvatar = ({ isUser, primaryGradient, aiBgColor, primaryColor }: {
+  isUser: boolean
+  primaryGradient: string
+  aiBgColor: string
+  primaryColor: string
+}) => (
+  <div style={{
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    background: isUser ? primaryGradient : aiBgColor,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: isUser ? '#fff' : primaryColor
+  }}>
+    {isUser ? <UserOutlined style={{ fontSize: 14 }} /> : <RobotOutlined style={{ fontSize: 14 }} />}
+  </div>
+)
+
+/* 代码块组件（带复制功能） */
+const CodeBlock = ({ language, value, darkMode }: {
+  language: string
+  value: string
+  darkMode: boolean
+}) => {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await window.electronAPI.copyToClipboard(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      message.error('复制失败')
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative', margin: '8px 0' }}>
+      {/* 复制按钮 */}
+      <Tooltip title={copied ? '已复制' : '复制代码'}>
+        <Button
+          type="text"
+          size="small"
+          icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+          onClick={handleCopy}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            color: copied ? '#52c41a' : (darkMode ? '#fff' : '#000'),
+            background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            borderRadius: 6,
+            padding: '4px 8px',
+            height: 28,
+            opacity: 0.7,
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1'
+            e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.7'
+            e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }}
+        />
+      </Tooltip>
+
+      {/* 代码高亮 */}
+      <SyntaxHighlighter
+        style={darkMode ? vscDarkPlus : prism}
+        language={language}
+        PreTag="div"
+        customStyle={{
+          borderRadius: 6,
+          fontSize: 13,
+          background: darkMode ? '#1e1e1e' : '#f6f8fa',
+          paddingRight: 50 // 为复制按钮留空间
+        }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  )
+}
+
+/* Markdown 渲染组件 */
+const MarkdownContent = ({ content, darkMode, textColor }: {
+  content: string
+  darkMode: boolean
+  textColor: string
+}) => {
+  const themeVars = getThemeVars(darkMode)
+
+  return (
+    <ReactMarkdown
+      components={{
+        code({ node, inline, className, children, ...props }: any) {
+          const match = /language-(\w+)/.exec(className || '')
+          const codeValue = String(children).replace(/\n$/, '')
+
+          return !inline && match ? (
+            <CodeBlock
+              language={match[1]}
+              value={codeValue}
+              darkMode={darkMode}
+            />
+          ) : (
+            <code
+              style={{
+                background: themeVars.codeBg,
+                padding: '2px 6px',
+                borderRadius: 3,
+                fontSize: 13,
+                fontFamily: 'monospace',
+                color: darkMode ? '#e06c75' : '#d73a49'
+              }}
+              {...props}
+            >
+              {children}
+            </code>
+          )
+        },
+        p({ children }) {
+          return <p style={{ marginBottom: 8, lineHeight: 1.7, color: textColor }}>{children}</p>
+        },
+        pre({ children }) {
+          return <>{children}</>
+        },
+        h1({ children }) {
+          return <h1 style={{ fontSize: 20, fontWeight: 600, marginTop: 16, marginBottom: 8, color: textColor }}>{children}</h1>
+        },
+        h2({ children }) {
+          return <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 14, marginBottom: 8, color: textColor }}>{children}</h2>
+        },
+        h3({ children }) {
+          return <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 12, marginBottom: 6, color: textColor }}>{children}</h3>
+        },
+        ul({ children }) {
+          return <ul style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>{children}</ul>
+        },
+        ol({ children }) {
+          return <ol style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>{children}</ol>
+        },
+        li({ children }) {
+          return <li style={{ marginBottom: 4, lineHeight: 1.7 }}>{children}</li>
+        },
+        blockquote({ children }) {
+          return (
+            <blockquote style={{
+              borderLeft: `4px solid ${darkMode ? '#444' : '#ddd'}`,
+              paddingLeft: 12,
+              marginLeft: 0,
+              marginBottom: 8,
+              color: darkMode ? '#aaa' : '#666',
+              fontStyle: 'italic'
+            }}>
+              {children}
+            </blockquote>
+          )
+        },
+        a({ children, href }) {
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: darkMode ? '#58a6ff' : '#0969da',
+                textDecoration: 'none'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+              onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+            >
+              {children}
+            </a>
+          )
+        },
+        table({ children }) {
+          return (
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              marginBottom: 8,
+              fontSize: 13
+            }}>
+              {children}
+            </table>
+          )
+        },
+        th({ children }) {
+          return (
+            <th style={{
+              border: `1px solid ${darkMode ? '#444' : '#ddd'}`,
+              padding: '6px 12px',
+              background: darkMode ? '#2a2a2a' : '#f6f8fa',
+              fontWeight: 600,
+              textAlign: 'left'
+            }}>
+              {children}
+            </th>
+          )
+        },
+        td({ children }) {
+          return (
+            <td style={{
+              border: `1px solid ${darkMode ? '#444' : '#ddd'}`,
+              padding: '6px 12px'
+            }}>
+              {children}
+            </td>
+          )
+        }
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
 }
 
 /* 系统提示词预设 */
@@ -117,6 +346,8 @@ const ChatView = (props: ChatViewProps) => {
   const [selectedProvider, setSelectedProvider] = useState<'deepseek' | 'groq' | 'gemini' | 'custom'>('deepseek')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [streamingMessage, setStreamingMessage] = useState('')
+  const prevProviderRef = useRef(selectedProvider)
+  const prevSystemPromptRef = useRef(systemPromptType)
 
   // Prompt 选择器
   const [promptPickerVisible, setPromptPickerVisible] = useState(false)
@@ -205,6 +436,35 @@ const ChatView = (props: ChatViewProps) => {
     }
     return true
   }, [aiSettings, selectedProvider])
+
+  // 监听提供商切换，有对话时提示用户
+  useEffect(() => {
+    if (prevProviderRef.current !== selectedProvider && messages.length > 0 && !isLoading) {
+      Modal.confirm({
+        title: '切换 AI 提供商',
+        content: '切换提供商可能导致对话上下文不一致，是否清空当前对话？',
+        okText: '清空对话',
+        cancelText: '保留对话',
+        onOk: () => {
+          setMessages([])
+          setStreamingMessage('')
+        }
+      })
+    }
+    prevProviderRef.current = selectedProvider
+  }, [selectedProvider, messages.length, isLoading])
+
+  // 监听系统提示词切换，有对话时提示用户
+  useEffect(() => {
+    if (prevSystemPromptRef.current !== systemPromptType && messages.length > 0 && !isLoading) {
+      Modal.info({
+        title: '系统提示词已切换',
+        content: '新的系统提示词将应用于后续对话，已有对话不受影响。',
+        okText: '我知道了'
+      })
+    }
+    prevSystemPromptRef.current = systemPromptType
+  }, [systemPromptType, messages.length, isLoading])
 
   // AI 是否已启用
   const aiEnabled = useMemo(() => aiSettings?.enabled ?? false, [aiSettings])
@@ -350,13 +610,19 @@ const ChatView = (props: ChatViewProps) => {
   ], [mentionFilteredPrompts, mentionFilteredRealtime, mentionFilteredHistory, historyLoading, themeVars])
 
   // 自动滚动到底部
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight
+    }
+  }, [])
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages, streamingMessage])
+    // 延迟滚动，确保 DOM 渲染完成
+    const timer = setTimeout(() => {
+      scrollToBottom()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [messages, streamingMessage, scrollToBottom])
 
   // 获取当前系统提示词
   const getSystemPrompt = () => {
@@ -369,10 +635,11 @@ const ChatView = (props: ChatViewProps) => {
   // 发送消息
   const handleSend = async () => {
     const content = mentionInputRef.current?.getContent()
+    // 边界检查：防止空消息和并发请求
     if (!content || !content.text.trim() || isLoading) return
 
     /* 构建消息文本，引用内容附加在末尾 */
-    let messageText = content.text
+    let messageText = content.text.trim()
     if (content.mentions.length > 0) {
       messageText += '\n\n--- 引用内容 ---'
       content.mentions.forEach(m => {
@@ -441,11 +708,6 @@ const ChatView = (props: ChatViewProps) => {
   const handleClear = () => {
     setMessages([])
     setStreamingMessage('')
-  }
-
-  // 删除单条消息
-  const handleDeleteMessage = (id: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== id))
   }
 
   // 使用引用内容（追加或替换到输入框，来自"引用"弹窗）
@@ -604,9 +866,107 @@ const ChatView = (props: ChatViewProps) => {
     onOpenSettings?.('ai-settings')
   }
 
-  // 气泡颜色
-  const userBubbleBg = darkMode ? 'rgba(217, 119, 87, 0.12)' : 'rgba(217, 119, 87, 0.06)'
-  const aiBubbleBg = themeVars.bgContainer
+  // 转换消息为 Bubble.List 格式
+  const bubbleItems = useMemo(() => {
+    const primaryGradient = themeVars.primaryGradient
+    const bgContainer = themeVars.bgContainer
+    const borderSecondary = themeVars.borderSecondary
+    const textColor = themeVars.text
+    const primaryColor = themeVars.primary
+    const userBgColor = darkMode ? 'rgba(217, 119, 87, 0.12)' : 'rgba(217, 119, 87, 0.06)'
+    const aiBgColor = darkMode ? '#333' : '#fde3cf'
+
+    const items: any[] = messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => {
+        const isUser = msg.role === 'user'
+        return {
+          key: msg.id,
+          role: isUser ? 'user' : 'ai',
+          content: msg.content,
+          placement: isUser ? ('end' as const) : ('start' as const),
+          avatar: <ChatAvatar
+            isUser={isUser}
+            primaryGradient={primaryGradient}
+            aiBgColor={aiBgColor}
+            primaryColor={primaryColor}
+          />,
+          // AI 消息使用 Markdown 渲染
+          contentRender: !isUser ? (content: string) => (
+            <MarkdownContent
+              content={content}
+              darkMode={darkMode}
+              textColor={textColor}
+            />
+          ) : undefined,
+          styles: {
+            content: {
+              background: isUser ? userBgColor : bgContainer,
+              borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              border: isUser ? 'none' : `1px solid ${borderSecondary}`,
+              color: textColor,
+              fontSize: 14,
+              lineHeight: 1.7,
+              whiteSpace: isUser ? ('pre-wrap' as const) : ('normal' as const),
+              wordBreak: 'break-word' as const
+            }
+          }
+        }
+      })
+
+    // 添加流式消息（带打字机效果）
+    if (streamingMessage) {
+      items.push({
+        key: 'streaming',
+        role: 'ai',
+        content: streamingMessage,
+        placement: 'start' as const,
+        loading: true,
+        // 打字机效果配置
+        typing: {
+          step: 5,
+          interval: 30
+        },
+        avatar: <ChatAvatar
+          isUser={false}
+          primaryGradient={primaryGradient}
+          aiBgColor={aiBgColor}
+          primaryColor={primaryColor}
+        />,
+        // 流式消息也使用 Markdown 渲染
+        contentRender: (content: string) => (
+          <MarkdownContent
+            content={content}
+            darkMode={darkMode}
+            textColor={textColor}
+          />
+        ),
+        styles: {
+          content: {
+            background: bgContainer,
+            borderRadius: '16px 16px 16px 4px',
+            border: `1px solid ${borderSecondary}`,
+            color: textColor,
+            fontSize: 14,
+            lineHeight: 1.7,
+            whiteSpace: 'normal' as const,
+            wordBreak: 'break-word' as const
+          }
+        }
+      })
+    }
+
+    return items
+  }, [
+    messages,
+    streamingMessage,
+    darkMode,
+    themeVars.primaryGradient,
+    themeVars.bgContainer,
+    themeVars.borderSecondary,
+    themeVars.text,
+    themeVars.primary
+  ])
 
   // ==================== 渲染 ====================
 
@@ -621,100 +981,6 @@ const ChatView = (props: ChatViewProps) => {
         background: themeVars.bgLayout
       }}>
         <Spin size="large" />
-      </div>
-    )
-  }
-
-  // 渲染消息气泡
-  const renderMessageBubble = (msg: ChatMessage, isStreaming = false) => {
-    const isUser = msg.role === 'user'
-
-    return (
-      <div
-        key={msg.id}
-        className="chat-message-row"
-        style={{
-          display: 'flex',
-          gap: 12,
-          flexDirection: isUser ? 'row-reverse' : 'row',
-          alignItems: 'flex-start',
-          maxWidth: '85%',
-          marginLeft: isUser ? 'auto' : 0,
-          marginRight: isUser ? 0 : 'auto'
-        }}
-      >
-        {/* 头像 */}
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: isUser ? themeVars.primaryGradient : (darkMode ? '#333' : '#e8e8e8'),
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          marginTop: 2
-        }}>
-          {isUser ? (
-            <UserOutlined style={{ fontSize: 14, color: '#fff' }} />
-          ) : (
-            <RobotOutlined style={{ fontSize: 14, color: isUser ? '#fff' : themeVars.primary }} />
-          )}
-        </div>
-
-        {/* 气泡 */}
-        <div style={{
-          position: 'relative',
-          background: isUser ? userBubbleBg : aiBubbleBg,
-          border: isUser ? 'none' : `1px solid ${themeVars.borderSecondary}`,
-          borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-          padding: '12px 16px',
-          minWidth: 40
-        }}>
-          <div style={{
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            color: themeVars.text,
-            fontSize: 14,
-            lineHeight: 1.7
-          }}>
-            {msg.content}
-          </div>
-
-          {isStreaming && (
-            <Spin size="small" style={{ marginTop: 8 }} />
-          )}
-
-          {!isStreaming && (
-            <div
-              className="chat-msg-actions"
-              style={{
-                position: 'absolute',
-                top: 6,
-                right: isUser ? 'auto' : 6,
-                left: isUser ? 6 : 'auto',
-                opacity: 0,
-                transition: 'opacity 0.15s'
-              }}
-            >
-              <Tooltip title="删除">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteMessage(msg.id)}
-                  style={{
-                    color: themeVars.textTertiary,
-                    width: 24,
-                    height: 24,
-                    padding: 0,
-                    borderRadius: '50%'
-                  }}
-                />
-              </Tooltip>
-            </div>
-          )}
-        </div>
       </div>
     )
   }
@@ -1254,24 +1520,21 @@ const ChatView = (props: ChatViewProps) => {
       )}
 
       {/* 消息区域 */}
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: isCompact ? '20px 16px' : '24px 32px'
-      }}>
+      <div
+        ref={messagesEndRef}
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: isCompact ? '20px 16px' : '24px 32px'
+        }}
+      >
         {messages.length === 0 && !streamingMessage ? (
           renderEmptyState()
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {messages.filter(msg => msg.role !== 'system').map(msg =>
-              renderMessageBubble(msg)
-            )}
-            {streamingMessage && renderMessageBubble(
-              { id: 'streaming', role: 'assistant', content: streamingMessage, timestamp: Date.now() },
-              true
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+          <Bubble.List
+            items={bubbleItems}
+            style={{ minHeight: '100%' }}
+          />
         )}
       </div>
 
@@ -1450,9 +1713,6 @@ const ChatView = (props: ChatViewProps) => {
 
       {/* 全局样式 */}
       <style>{`
-        .chat-message-row:hover .chat-msg-actions {
-          opacity: 1 !important;
-        }
         .mention-tag {
           display: inline-flex;
           align-items: center;

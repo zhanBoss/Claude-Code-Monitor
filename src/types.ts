@@ -42,6 +42,8 @@ export interface ProviderConfig {
 export interface AISettings {
   enabled: boolean
   provider: 'deepseek' | 'groq' | 'gemini' | 'custom'
+  autoFormatPrompt?: boolean // AI 自动格式化 Prompt 开关
+  formatTimeout?: number // 格式化超时时间（毫秒）
   // 每个提供商的独立配置
   providers: {
     deepseek: ProviderConfig
@@ -155,6 +157,8 @@ export interface ElectronAPI {
     onComplete: () => void,
     onError: (error: string) => void
   ) => Promise<void>
+  // AI 格式化 Prompt
+  formatPrompt: (content: string, contentHash?: string) => Promise<{ success: boolean; formatted?: string; error?: string }>
 }
 
 // AI 总结请求参数
