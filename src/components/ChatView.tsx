@@ -19,6 +19,9 @@ import {
 import { ChatMessage, CommonCommand, AISettings, ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
 import ElectronModal from './ElectronModal'
+import MentionInput, { MentionInputRef, MentionItem } from './MentionInput'
+import MentionPopup, { MentionPopupTab } from './MentionPopup'
+import { highlightText } from '../utils/highlightText'
 
 const { TextArea } = Input
 const { Text } = Typography
@@ -107,7 +110,7 @@ const ChatView = (props: ChatViewProps) => {
 
   // 对话状态
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputValue, setInputValue] = useState('')
+  const [textLength, setTextLength] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [systemPromptType, setSystemPromptType] = useState<keyof typeof SYSTEM_PROMPTS>('claude-code-expert')
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
@@ -130,6 +133,13 @@ const ChatView = (props: ChatViewProps) => {
   // 输入框焦点 & 响应式
   const [inputFocused, setInputFocused] = useState(false)
   const [isCompact, setIsCompact] = useState(false)
+
+  // @ 引用弹窗
+  const mentionInputRef = useRef<MentionInputRef>(null)
+  const [mentionPopupVisible, setMentionPopupVisible] = useState(false)
+  const [mentionSourceTab, setMentionSourceTab] = useState<PromptSourceTab>('prompts')
+  const [mentionSearchText, setMentionSearchText] = useState('')
+  const noMatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 监听窗口宽度变化，决定紧凑模式
   useEffect(() => {
@@ -173,7 +183,7 @@ const ChatView = (props: ChatViewProps) => {
   // 处理外部传入的初始 Prompt
   useEffect(() => {
     if (initialPrompt) {
-      setInputValue(initialPrompt)
+      mentionInputRef.current?.setTextContent(initialPrompt)
       onInitialPromptUsed?.()
     }
   }, [initialPrompt])
@@ -244,6 +254,96 @@ const ChatView = (props: ChatViewProps) => {
   // 是否还有更多历史消息
   const hasMoreHistory = filteredHistoryRecords.length > historyDisplayCount
 
+  // @ 引用弹窗过滤后的数据
+  const mentionFilteredPrompts = useMemo(() => {
+    const sorted = [...commonPrompts].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return b.updatedAt - a.updatedAt
+    })
+    if (!mentionSearchText.trim()) return sorted
+    const keyword = mentionSearchText.toLowerCase()
+    return sorted.filter(p =>
+      p.name.toLowerCase().includes(keyword) ||
+      p.content.toLowerCase().includes(keyword)
+    )
+  }, [commonPrompts, mentionSearchText])
+
+  const mentionFilteredRealtime = useMemo(() => {
+    if (!mentionSearchText.trim()) return realtimeRecords
+    const keyword = mentionSearchText.toLowerCase()
+    return realtimeRecords.filter(r =>
+      r.display.toLowerCase().includes(keyword) ||
+      r.project.toLowerCase().includes(keyword)
+    )
+  }, [realtimeRecords, mentionSearchText])
+
+  const mentionFilteredHistory = useMemo(() => {
+    if (!mentionSearchText.trim()) return historySessionRecords
+    const keyword = mentionSearchText.toLowerCase()
+    return historySessionRecords.filter(r =>
+      r.display.toLowerCase().includes(keyword) ||
+      r.project.toLowerCase().includes(keyword)
+    )
+  }, [historySessionRecords, mentionSearchText])
+
+  /* 是否有任何搜索匹配（用于弹窗内 "无匹配" 提示） */
+  const mentionHasAnyResults = useMemo(() => {
+    if (!mentionSearchText.trim()) return true
+    return mentionFilteredPrompts.length > 0 ||
+           mentionFilteredRealtime.length > 0 ||
+           mentionFilteredHistory.length > 0
+  }, [mentionSearchText, mentionFilteredPrompts, mentionFilteredRealtime, mentionFilteredHistory])
+
+  /* 构建 MentionPopup 的 Tab 数据 */
+  const mentionPopupTabs: MentionPopupTab[] = useMemo(() => [
+    {
+      key: 'prompts',
+      label: '常用 Prompt',
+      icon: <StarOutlined />,
+      emptyIcon: <StarOutlined />,
+      emptyTitle: '暂无常用 Prompt',
+      emptyDescription: '请先在「常用 Prompt」页面添加',
+      items: mentionFilteredPrompts.slice(0, 20).map(prompt => ({
+        key: `m-${prompt.id}`,
+        title: prompt.name,
+        content: prompt.content,
+        extra: prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: '#faad14' }} /> : undefined,
+        mentionData: { id: prompt.id, label: prompt.name, content: prompt.content, type: 'prompt' as const }
+      }))
+    },
+    {
+      key: 'realtime',
+      label: '实时消息',
+      icon: <ThunderboltOutlined />,
+      emptyIcon: <ThunderboltOutlined />,
+      emptyTitle: '暂无实时消息',
+      emptyDescription: '开启监控后，新的对话将出现在这里',
+      items: mentionFilteredRealtime.slice(0, 30).map((record, idx) => ({
+        key: `m-rt-${record.timestamp}-${idx}`,
+        title: getProjectShortName(record.project),
+        content: record.display,
+        extra: <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>{formatTime(record.timestamp)}</span>,
+        mentionData: { id: `rt-${record.timestamp}-${idx}`, label: getProjectShortName(record.project), content: record.display, type: 'realtime' as const }
+      }))
+    },
+    {
+      key: 'history',
+      label: '历史消息',
+      icon: <ClockCircleOutlined />,
+      loading: historyLoading,
+      emptyIcon: <ClockCircleOutlined />,
+      emptyTitle: '暂无历史消息',
+      items: mentionFilteredHistory.slice(0, 30).map((record, idx) => ({
+        key: `m-hr-${record.timestamp}-${idx}`,
+        title: getProjectShortName(record.project),
+        content: record.display,
+        extra: <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>{formatTime(record.timestamp)}</span>,
+        mentionData: { id: `hr-${record.timestamp}-${idx}`, label: getProjectShortName(record.project), content: record.display, type: 'history' as const }
+      }))
+    }
+  ], [mentionFilteredPrompts, mentionFilteredRealtime, mentionFilteredHistory, historyLoading, themeVars])
+
   // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -263,17 +363,28 @@ const ChatView = (props: ChatViewProps) => {
 
   // 发送消息
   const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return
+    const content = mentionInputRef.current?.getContent()
+    if (!content || !content.text.trim() || isLoading) return
+
+    /* 构建消息文本，引用内容附加在末尾 */
+    let messageText = content.text
+    if (content.mentions.length > 0) {
+      messageText += '\n\n--- 引用内容 ---'
+      content.mentions.forEach(m => {
+        messageText += `\n\n【${m.label}】:\n${m.content}`
+      })
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputValue.trim(),
+      content: messageText,
       timestamp: Date.now()
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputValue('')
+    mentionInputRef.current?.clear()
+    setTextLength(0)
     setIsLoading(true)
     setStreamingMessage('')
 
@@ -332,19 +443,125 @@ const ChatView = (props: ChatViewProps) => {
     setMessages(prev => prev.filter(msg => msg.id !== id))
   }
 
-  // 使用引用内容（追加或替换到输入框）
+  // 使用引用内容（追加或替换到输入框，来自"引用"弹窗）
   const handleUseContent = (content: string) => {
-    if (inputValue.trim()) {
-      setInputValue(prev => prev + '\n\n' + content)
+    const currentContent = mentionInputRef.current?.getContent()
+    if (currentContent && currentContent.text.trim()) {
+      mentionInputRef.current?.appendText('\n\n' + content)
     } else {
-      setInputValue(content)
+      mentionInputRef.current?.setTextContent(content)
     }
     setPromptPickerVisible(false)
     setPromptSearchKeyword('')
+    mentionInputRef.current?.focus()
   }
+
+  /* 清除无匹配自动关闭定时器 */
+  const clearNoMatchTimer = useCallback(() => {
+    if (noMatchTimerRef.current) {
+      clearTimeout(noMatchTimerRef.current)
+      noMatchTimerRef.current = null
+    }
+  }, [])
+
+  /* 组件卸载时清理定时器 */
+  useEffect(() => {
+    return () => {
+      if (noMatchTimerRef.current) {
+        clearTimeout(noMatchTimerRef.current)
+      }
+    }
+  }, [])
+
+  // @ 引用弹窗相关处理
+  const handleMentionTrigger = useCallback(() => {
+    clearNoMatchTimer()
+    setMentionPopupVisible(true)
+    setMentionSourceTab('prompts')
+    setMentionSearchText('')
+    /* 刷新常用 Prompt */
+    window.electronAPI.getCommonCommands().then(setCommonPrompts).catch(() => {})
+  }, [clearNoMatchTimer])
+
+  const handleMentionSearchChange = useCallback((searchText: string) => {
+    setMentionSearchText(searchText)
+    clearNoMatchTimer()
+
+    /* 搜索文本非空时，检查所有 tab 是否还有匹配结果 */
+    if (searchText.trim()) {
+      const keyword = searchText.toLowerCase()
+      const hasPrompts = commonPrompts.some(p =>
+        p.name.toLowerCase().includes(keyword) ||
+        p.content.toLowerCase().includes(keyword)
+      )
+      const hasRealtime = realtimeRecords.some(r =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword)
+      )
+      const hasHistory = historySessionRecords.some(r =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword)
+      )
+
+      if (!hasPrompts && !hasRealtime && !hasHistory) {
+        /*
+         * 所有 tab 均无匹配 — 延迟 1.5s 后自动关闭
+         * 弹窗保持可见，显示 "无匹配" 提示，给用户反应时间
+         * 若在倒计时内出现匹配（用户继续输入/删除），定时器自动取消
+         */
+        noMatchTimerRef.current = setTimeout(() => {
+          mentionInputRef.current?.dismissMention()
+          setMentionPopupVisible(false)
+          setMentionSearchText('')
+          noMatchTimerRef.current = null
+        }, 1500)
+        /* 保持弹窗可见，显示无匹配提示 */
+        setMentionPopupVisible(true)
+        return
+      }
+    }
+
+    /* 有匹配或搜索文本为空，确保弹窗可见 */
+    setMentionPopupVisible(true)
+  }, [commonPrompts, realtimeRecords, historySessionRecords, clearNoMatchTimer])
+
+  const handleMentionDismiss = useCallback(() => {
+    clearNoMatchTimer()
+    setMentionPopupVisible(false)
+    setMentionSearchText('')
+  }, [clearNoMatchTimer])
+
+  const handleMentionSelect = useCallback((mention: MentionItem) => {
+    clearNoMatchTimer()
+    mentionInputRef.current?.insertMention(mention)
+    setMentionPopupVisible(false)
+    setMentionSearchText('')
+  }, [clearNoMatchTimer])
+
+  const handleMentionTabChange = useCallback((tab: PromptSourceTab) => {
+    setMentionSourceTab(tab)
+
+    /* 切到历史 tab 时加载记录 */
+    if (tab === 'history' && historySessionRecords.length === 0) {
+      setHistoryLoading(true)
+      window.electronAPI.readHistory()
+        .then(result => {
+          if (result.success && result.records) {
+            const sorted = [...result.records].sort((a, b) => b.timestamp - a.timestamp)
+            setHistorySessionRecords(sorted)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setHistoryLoading(false))
+    }
+  }, [historySessionRecords.length])
 
   // 打开 Prompt 选择器
   const handleOpenPromptPicker = () => {
+    /* 关闭 @ 引用弹窗 */
+    setMentionPopupVisible(false)
+    setMentionSearchText('')
+
     setPromptPickerVisible(true)
     setPromptSearchKeyword('')
     setPromptSourceTab('prompts')
@@ -554,13 +771,16 @@ const ChatView = (props: ChatViewProps) => {
         ].map((item, i) => (
           <div
             key={i}
-            onClick={() => setInputValue(
-              i === 0
-                ? 'Claude Code 有哪些实用的使用技巧？'
-                : i === 1
-                  ? '如何配置 Claude Code 的 settings.json？'
-                  : 'Claude Code 的最佳实践有哪些？'
-            )}
+            onClick={() => {
+              mentionInputRef.current?.setTextContent(
+                i === 0
+                  ? 'Claude Code 有哪些实用的使用技巧？'
+                  : i === 1
+                    ? '如何配置 Claude Code 的 settings.json？'
+                    : 'Claude Code 的最佳实践有哪些？'
+              )
+              mentionInputRef.current?.focus()
+            }}
             style={{
               padding: '8px 16px',
               borderRadius: 20,
@@ -723,13 +943,14 @@ const ChatView = (props: ChatViewProps) => {
     )
   }
 
-  // 渲染引用内容列表项（通用样式）
+  /* 渲染引用内容列表项（通用样式，支持关键词高亮） */
   const renderPickerItem = (
     key: string,
     title: string,
     content: string,
     extra?: React.ReactNode,
-    onClick?: () => void
+    onClick?: () => void,
+    keyword?: string
   ) => (
     <div
       key={key}
@@ -760,7 +981,7 @@ const ChatView = (props: ChatViewProps) => {
         alignItems: 'center',
         gap: 6
       }}>
-        {title}
+        {keyword ? highlightText(title, keyword, themeVars.primary, darkMode) : title}
         {extra}
       </div>
       <div style={{
@@ -774,7 +995,7 @@ const ChatView = (props: ChatViewProps) => {
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word'
       }}>
-        {content}
+        {keyword ? highlightText(content, keyword, themeVars.primary, darkMode) : content}
       </div>
     </div>
   )
@@ -797,7 +1018,8 @@ const ChatView = (props: ChatViewProps) => {
               prompt.name,
               prompt.content,
               prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: '#faad14' }} /> : undefined,
-              () => handleUseContent(prompt.content)
+              () => handleUseContent(prompt.content),
+              promptSearchKeyword
             )
           )}
         </div>
@@ -822,7 +1044,8 @@ const ChatView = (props: ChatViewProps) => {
               <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>
                 {formatTime(record.timestamp)}
               </span>,
-              () => handleUseContent(record.display)
+              () => handleUseContent(record.display),
+              promptSearchKeyword
             )
           )}
         </div>
@@ -855,7 +1078,8 @@ const ChatView = (props: ChatViewProps) => {
               <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>
                 {formatTime(record.timestamp)}
               </span>,
-              () => handleUseContent(record.display)
+              () => handleUseContent(record.display),
+              promptSearchKeyword
             )
           )}
 
@@ -1047,7 +1271,22 @@ const ChatView = (props: ChatViewProps) => {
       </div>
 
       {/* 输入区域 */}
-      <div style={{ padding: isCompact ? '12px 16px 16px' : '12px 32px 20px' }}>
+      <div style={{ padding: isCompact ? '12px 16px 16px' : '12px 32px 20px', position: 'relative' }}>
+
+        {/* @ 引用弹窗（浮动在输入框上方） */}
+        <MentionPopup
+          visible={mentionPopupVisible}
+          darkMode={darkMode}
+          searchText={mentionSearchText}
+          activeTab={mentionSourceTab}
+          tabs={mentionPopupTabs}
+          hasAnyResults={mentionHasAnyResults}
+          isCompact={isCompact}
+          onTabChange={(tab) => handleMentionTabChange(tab as PromptSourceTab)}
+          onSelect={handleMentionSelect}
+          onDismiss={handleMentionDismiss}
+        />
+
         <div style={{
           border: `1px solid ${inputFocused ? themeVars.primary : themeVars.borderSecondary}`,
           borderRadius: 12,
@@ -1056,22 +1295,19 @@ const ChatView = (props: ChatViewProps) => {
           boxShadow: inputFocused ? `0 0 0 2px ${themeVars.primaryShadow}` : 'none',
           overflow: 'hidden'
         }}>
-          <TextArea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
+          <MentionInput
+            ref={mentionInputRef}
+            darkMode={darkMode}
+            disabled={isLoading}
+            mentionPopupVisible={mentionPopupVisible}
+            placeholder="输入消息，输入 @ 引用内容... (Shift+Enter 换行)"
+            onSend={handleSend}
+            onChange={setTextLength}
+            onMentionTrigger={handleMentionTrigger}
+            onMentionSearchChange={handleMentionSearchChange}
+            onMentionDismiss={handleMentionDismiss}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
-            placeholder="输入消息... (Shift+Enter 换行)"
-            autoSize={{ minRows: 1, maxRows: 6 }}
-            disabled={isLoading}
-            variant="borderless"
-            style={{ padding: '12px 16px 4px', fontSize: 14, resize: 'none' }}
           />
 
           {/* 底部操作栏 */}
@@ -1102,9 +1338,9 @@ const ChatView = (props: ChatViewProps) => {
 
             <div style={{ flex: 1 }} />
 
-            {inputValue.length > 0 && (
+            {textLength > 0 && (
               <Text style={{ fontSize: 11, color: themeVars.textTertiary, marginRight: 4 }}>
-                {inputValue.length} 字
+                {textLength} 字
               </Text>
             )}
 
@@ -1113,7 +1349,7 @@ const ChatView = (props: ChatViewProps) => {
               icon={<SendOutlined />}
               onClick={handleSend}
               loading={isLoading}
-              disabled={!inputValue.trim()}
+              disabled={textLength === 0}
               size="small"
               style={{ borderRadius: 8, height: 30, paddingInline: isCompact ? 10 : 14, fontSize: 13 }}
             >
@@ -1211,6 +1447,26 @@ const ChatView = (props: ChatViewProps) => {
       <style>{`
         .chat-message-row:hover .chat-msg-actions {
           opacity: 1 !important;
+        }
+        .mention-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 8px;
+          margin: 0 2px;
+          border-radius: 4px;
+          background: ${darkMode ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.08)'};
+          color: ${darkMode ? '#E88B6F' : '#D97757'};
+          font-size: 13px;
+          line-height: 1.6;
+          cursor: default;
+          user-select: none;
+          vertical-align: baseline;
+          border: 1px solid ${darkMode ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)'};
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        .mention-tag:hover {
+          background: ${darkMode ? 'rgba(217, 119, 87, 0.25)' : 'rgba(217, 119, 87, 0.15)'};
         }
       `}</style>
     </div>
