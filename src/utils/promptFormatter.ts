@@ -49,12 +49,21 @@ export const replacePastedContents = (
   const regex = /\[Pasted text #(\d+)(?:\s+\+\d+\s+lines)?\]/g
 
   result = result.replace(regex, (match, index) => {
-    const key = `Pasted text #${index}`
-    const content = pastedContents[key]
+    // 尝试两种 key 格式：完整格式和数字格式
+    const fullKey = `Pasted text #${index}`
+    const numberKey = index
+    const value = pastedContents[fullKey] || pastedContents[numberKey]
 
-    if (content !== undefined) {
-      const contentStr = typeof content === 'string' ? content : JSON.stringify(content, null, 2)
-      return `\n\n--- ${key} ---\n${formatContent(contentStr)}\n--- End ---\n\n`
+    if (value !== undefined) {
+      // 如果是对象且包含 content 字段（已展开的粘贴内容），提取 content
+      let contentStr: string
+      if (value && typeof value === 'object' && 'content' in value) {
+        contentStr = value.content
+      } else {
+        contentStr = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+      }
+
+      return `\n\n--- ${fullKey} ---\n${formatContent(contentStr)}\n--- End ---\n\n`
     }
 
     return match // 如果找不到对应内容，保持原样
@@ -78,9 +87,20 @@ export const formatPastedContentsForModal = (
   pastedContents: Record<string, any>
 ): Array<{ key: string; content: string }> => {
   return Object.entries(pastedContents).map(([key, value]) => {
+    // 规范化 key：如果是纯数字，转换为 "Pasted text #N" 格式
+    const displayKey = /^\d+$/.test(key) ? `Pasted text #${key}` : key
+
+    // 如果 value 是对象且包含 content 字段（已展开的粘贴内容），提取 content
+    if (value && typeof value === 'object' && 'content' in value) {
+      return {
+        key: displayKey,
+        content: formatContent(value.content)
+      }
+    }
+    // 否则直接使用 value（可能是字符串或其他格式）
     const contentStr = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
     return {
-      key,
+      key: displayKey,
       content: formatContent(contentStr)
     }
   })

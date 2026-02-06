@@ -8,9 +8,10 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord, RecordConfig } from '../types'
 import { getThemeVars } from '../theme'
 import FileViewer from './FileViewer'
-import { replacePastedContents, formatPastedContentsForModal } from '../utils/promptFormatter'
+import { replacePastedContents } from '../utils/promptFormatter'
 import SmartContent from './SmartContent'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
+import CopyTextModal from './CopyTextModal'
 
 const { Text } = Typography
 
@@ -692,8 +693,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                       const hasImages = record.images && record.images.length > 0
                       const hasCopyText = record.pastedContents && Object.keys(record.pastedContents).length > 0
                       const hasResources = hasImages || hasCopyText
+                      // 在列表视图中显示原始 prompt（不展开 Copy Text）
+                      const displayPrompt = record.display
+                      // 完整 prompt（用于详情弹窗，展开 Copy Text）
                       const fullPrompt = replacePastedContents(record.display, record.pastedContents || {})
-                      const lines = fullPrompt.split('\n')
+                      const lines = displayPrompt.split('\n')
                       const isPromptLong = lines.length > 3
 
                       return (
@@ -760,13 +764,19 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                           {/* Prompt 内容 */}
                           <div style={{ marginBottom: 8 }}>
                             <SmartContent
-                              content={fullPrompt}
+                              content={displayPrompt}
                               darkMode={darkMode}
                               maxLines={isPromptLong ? 3 : undefined}
                               onClick={isPromptLong ? () => {
                                 setPromptModalContent(fullPrompt)
                                 setPromptModalVisible(true)
                               } : undefined}
+                              hasPastedContents={hasCopyText}
+                              onPastedTextClick={(pastedTextKey) => {
+                                // 打开 Copy Text 弹窗并滚动到对应的内容
+                                setCopyTextModalContent(record.pastedContents || {})
+                                setCopyTextModalVisible(true)
+                              }}
                             />
                           </div>
 
@@ -983,47 +993,21 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
           lineHeight: 1.6,
           color: themeVars.text
         }}>
-          <SmartContent content={promptModalContent} darkMode={darkMode} />
+          <SmartContent
+            content={promptModalContent}
+            darkMode={darkMode}
+            hasPastedContents={false}
+          />
         </div>
       </ElectronModal>
 
       {/* Copy Text 详情弹窗 */}
-      <ElectronModal
-        title="Copy Text 详情"
-        open={copyTextModalVisible}
-        onCancel={() => setCopyTextModalVisible(false)}
-        footer={null}
-        width={800}
-        styles={{
-          body: {
-            maxHeight: '70vh',
-            overflow: 'auto'
-          } as React.CSSProperties
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {formatPastedContentsForModal(copyTextModalContent).map(({ key, content }) => (
-            <div key={key}>
-              <Text strong style={{ fontSize: 14, color: themeVars.textSecondary, marginBottom: 8, display: 'block' }}>
-                {key}:
-              </Text>
-              <div style={{
-                padding: '12px',
-                background: themeVars.bgElevated,
-                borderRadius: 8,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: themeVars.text,
-                fontFamily: 'monospace'
-              }}>
-                {content}
-              </div>
-            </div>
-          ))}
-        </div>
-      </ElectronModal>
+      <CopyTextModal
+        visible={copyTextModalVisible}
+        onClose={() => setCopyTextModalVisible(false)}
+        content={copyTextModalContent}
+        darkMode={darkMode}
+      />
 
       {/* 文件查看器 */}
       <FileViewer

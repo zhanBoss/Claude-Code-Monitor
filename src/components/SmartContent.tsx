@@ -11,6 +11,8 @@ interface SmartContentProps {
   darkMode: boolean
   maxLines?: number // 最大显示行数，超过则截断
   onClick?: () => void // 点击事件（用于展开）
+  onPastedTextClick?: (pastedTextKey: string) => void // 点击 Pasted text 占位符的回调
+  hasPastedContents?: boolean // 是否有粘贴内容（用于判断是否显示可点击样式）
 }
 
 /**
@@ -22,7 +24,7 @@ interface SmartContentProps {
  * 3. 自动检测链接并支持点击跳转
  * 4. 支持 Markdown 渲染
  */
-function SmartContent({ content, darkMode, maxLines, onClick }: SmartContentProps) {
+function SmartContent({ content, darkMode, maxLines, onClick, onPastedTextClick, hasPastedContents }: SmartContentProps) {
   const themeVars = getThemeVars(darkMode)
 
   // 检测内容类型
@@ -139,13 +141,19 @@ function SmartContent({ content, darkMode, maxLines, onClick }: SmartContentProp
     return 'text'
   }
 
-  // 检测并渲染链接
+  // 检测并渲染链接和 Pasted text 占位符
   const renderTextWithLinks = (text: string) => {
     // URL 正则表达式
     const urlRegex = /(https?:\/\/[^\s]+)/g
-    const parts = text.split(urlRegex)
+    // Pasted text 占位符正则：[Pasted text #N] 或 [Pasted text #N +X lines]
+    const pastedTextRegex = /\[Pasted text #(\d+)(?:\s+\+\d+\s+lines)?\]/g
+
+    // 合并两个正则，按出现顺序分割
+    const combinedRegex = /(https?:\/\/[^\s]+|\[Pasted text #\d+(?:\s+\+\d+\s+lines)?\])/g
+    const parts = text.split(combinedRegex)
 
     return parts.map((part, index) => {
+      // 检查是否为 URL
       if (urlRegex.test(part)) {
         return (
           <a
@@ -168,6 +176,48 @@ function SmartContent({ content, darkMode, maxLines, onClick }: SmartContentProp
           </a>
         )
       }
+
+      // 检查是否为 Pasted text 占位符
+      const pastedTextMatch = part.match(/\[Pasted text #(\d+)(?:\s+\+(\d+)\s+lines)?\]/)
+      if (pastedTextMatch && hasPastedContents && onPastedTextClick) {
+        const pastedTextNumber = pastedTextMatch[1]
+        const linesCount = pastedTextMatch[2]
+        const pastedTextKey = `Pasted text #${pastedTextNumber}`
+
+        return (
+          <span
+            key={index}
+            style={{
+              background: `${themeVars.primary}15`,
+              color: themeVars.primary,
+              padding: '2px 6px',
+              borderRadius: 4,
+              fontSize: '0.95em',
+              fontWeight: 500,
+              cursor: 'pointer',
+              border: `1px solid ${themeVars.primary}30`,
+              display: 'inline-block',
+              transition: 'all 0.2s'
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onPastedTextClick(pastedTextKey)
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = `${themeVars.primary}25`
+              e.currentTarget.style.borderColor = `${themeVars.primary}60`
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = `${themeVars.primary}15`
+              e.currentTarget.style.borderColor = `${themeVars.primary}30`
+            }}
+            title={`点击查看 Copy Text 内容${linesCount ? ` (${linesCount} 行)` : ''}`}
+          >
+            {part}
+          </span>
+        )
+      }
+
       return <span key={index}>{part}</span>
     })
   }

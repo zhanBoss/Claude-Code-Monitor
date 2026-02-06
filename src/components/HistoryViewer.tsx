@@ -14,7 +14,8 @@ import {
   DeleteOutlined,
   ExclamationCircleOutlined,
   CloseOutlined,
-  CommentOutlined
+  CommentOutlined,
+  FileImageOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -26,6 +27,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
 import SmartContent from './SmartContent'
+import CopyTextModal from './CopyTextModal'
 
 // 设置 dayjs 中文语言
 dayjs.locale('zh-cn')
@@ -83,6 +85,10 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
   // 层级 3: Record 详情弹窗
   const [selectedRecord, setSelectedRecord] = useState<ClaudeRecord | null>(null)
   const [recordModalVisible, setRecordModalVisible] = useState(false)
+
+  // Copy Text 弹窗状态
+  const [copyTextModalVisible, setCopyTextModalVisible] = useState(false)
+  const [copyTextModalContent, setCopyTextModalContent] = useState<Record<string, any>>({})
 
   // AI 总结相关状态
   const [summarizing, setSummarizing] = useState(false)
@@ -1263,99 +1269,127 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         styles={{
           body: {
             maxHeight: 'calc(100vh - 260px)',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            padding: 16
           } as React.CSSProperties
         }}
         zIndex={1002}
       >
         {selectedRecord && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            {/* Record 元信息 */}
-            <Card size="small" styles={{ body: { background: themeVars.bgSection } }}>
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>时间：</Text>
-                  <Text style={{ fontSize: 12 }}>{formatTime(selectedRecord.timestamp)}</Text>
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>项目：</Text>
-                  <Text
-                    code
-                    style={{
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      color: themeVars.primary
-                    }}
-                    onClick={() => handleOpenFolder(selectedRecord.project)}
-                  >
-                    {selectedRecord.project}
-                  </Text>
-                </div>
-              </Space>
-            </Card>
-
-            {/* Record 内容 */}
-            <Card size="small" title="对话内容">
-              <div style={{ fontSize: 13, color: themeVars.text }}>
-                {searchKeyword ? (
-                  <Highlighter
-                    searchWords={[searchKeyword]}
-                    autoEscape
-                    textToHighlight={selectedRecord.display}
-                    highlightStyle={{
-                      backgroundColor: darkMode ? themeVars.primaryHover : themeVars.primaryLight,
-                      color: themeVars.text,
-                      padding: '2px 4px',
-                      borderRadius: 2,
-                    }}
-                  />
-                ) : (
-                  <SmartContent content={selectedRecord.display} darkMode={darkMode} />
-                )}
-              </div>
-
-              {/* 渲染图片 - 与消息内容在同一个 Card */}
-              {selectedRecord.images && selectedRecord.images.length > 0 && (
-                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${themeVars.borderSecondary}` }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <Text strong style={{ fontSize: 13 }}>
-                      📷 图片附件
+          <Card
+            size="small"
+            styles={{
+              body: {
+                padding: 12,
+                background: themeVars.bgSection,
+                border: `1px solid ${themeVars.borderSecondary}`
+              }
+            }}
+          >
+            {/* 资源信息栏 */}
+            {((selectedRecord.images && selectedRecord.images.length > 0) ||
+              (selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0)) && (
+              <div style={{ marginBottom: 12 }}>
+                <Space size="middle">
+                  {selectedRecord.images && selectedRecord.images.length > 0 && (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: themeVars.textSecondary
+                      }}
+                    >
+                      <FileImageOutlined style={{ marginRight: 4 }} />
+                      {selectedRecord.images.length}张图片
                     </Text>
-                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
-                      ({selectedRecord.images.length} 张)
+                  )}
+                  {selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0 && (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: themeVars.textSecondary,
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        setCopyTextModalContent(selectedRecord.pastedContents || {})
+                        setCopyTextModalVisible(true)
+                      }}
+                    >
+                      <FileTextOutlined style={{ marginRight: 4 }} />
+                      {Object.keys(selectedRecord.pastedContents).length}个Copy Text
                     </Text>
-                  </div>
+                  )}
+                </Space>
+
+                {/* 图片网格 - 默认显示 */}
+                {selectedRecord.images && selectedRecord.images.length > 0 && (
                   <Image.PreviewGroup>
                     <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))',
-                      gap: 8
+                      display: 'flex',
+                      gap: 8,
+                      marginTop: 8,
+                      flexWrap: 'wrap'
                     }}>
                       {selectedRecord.images.map((imagePath, imgIndex) => (
                         <ImageThumbnail key={imgIndex} imagePath={imagePath} index={imgIndex} />
                       ))}
                     </div>
                   </Image.PreviewGroup>
-                </div>
-              )}
-            </Card>
-
-            {/* 粘贴的内容 */}
-            {selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0 && (
-              <Card size="small" title="附加内容">
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                  {Object.entries(selectedRecord.pastedContents).map(([key, value]) => (
-                    <div key={key}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>附件 {key}:</Text>
-                      {renderPastedContent(value)}
-                    </div>
-                  ))}
-                </Space>
-              </Card>
+                )}
+              </div>
             )}
-          </Space>
+
+            {/* Prompt 内容 */}
+            <div style={{ marginBottom: 8 }}>
+              <SmartContent
+                content={selectedRecord.display}
+                darkMode={darkMode}
+                hasPastedContents={selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0}
+                onPastedTextClick={(pastedTextKey) => {
+                  // 打开 Copy Text 弹窗
+                  setCopyTextModalContent(selectedRecord.pastedContents || {})
+                  setCopyTextModalVisible(true)
+                }}
+              />
+            </div>
+
+            {/* 底部信息栏 */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingTop: 8,
+              borderTop: `1px solid ${themeVars.borderSecondary}`
+            }}>
+              <div>
+                <Text type="secondary" style={{ fontSize: 11, marginRight: 12 }}>
+                  <ClockCircleOutlined style={{ marginRight: 4 }} />
+                  {formatTime(selectedRecord.timestamp)}
+                </Text>
+                <Text
+                  code
+                  style={{
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    color: themeVars.primary
+                  }}
+                  onClick={() => handleOpenFolder(selectedRecord.project)}
+                >
+                  {selectedRecord.project}
+                </Text>
+              </div>
+            </div>
+          </Card>
         )}
       </ElectronModal>
+
+      {/* Copy Text 详情弹窗 */}
+      <CopyTextModal
+        visible={copyTextModalVisible}
+        onClose={() => setCopyTextModalVisible(false)}
+        content={copyTextModalContent}
+        darkMode={darkMode}
+        zIndex={1003}
+      />
 
       {/* AI 总结结果弹窗 */}
       <ElectronModal
