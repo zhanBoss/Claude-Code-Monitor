@@ -171,6 +171,10 @@ function App() {
             onClear={handleClearRecords}
             onOpenSettings={() => handleOpenSettings('record-control')}
             darkMode={darkMode}
+            onSendToChat={(content: string) => {
+              setChatInitialPrompt(content)
+              setCurrentRoute('chat')
+            }}
           />
         )
       case 'history':
@@ -178,6 +182,10 @@ function App() {
           <HistoryViewer
             onOpenSettings={() => handleOpenSettings('record-control')}
             darkMode={darkMode}
+            onSendToChat={(content: string) => {
+              setChatInitialPrompt(content)
+              setCurrentRoute('chat')
+            }}
           />
         )
       case 'prompts':

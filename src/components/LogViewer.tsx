@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip, Input } from 'antd'
-import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons'
+import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined, SearchOutlined, CloseOutlined, CommentOutlined } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -19,6 +19,7 @@ interface LogViewerProps {
   onClear: () => void
   onOpenSettings?: () => void
   darkMode: boolean
+  onSendToChat?: (content: string) => void
 }
 
 interface GroupedRecord {
@@ -28,7 +29,7 @@ interface GroupedRecord {
   latestTimestamp: number
 }
 
-function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProps) {
+function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
@@ -781,15 +782,28 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                               <ClockCircleOutlined style={{ marginRight: 4 }} />
                               {formatTimeShort(record.timestamp)}
                             </Text>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<CopyOutlined />}
-                              onClick={() => handleCopy(fullPrompt)}
-                              style={{ fontSize: 11, padding: '0 4px', height: 20 }}
-                            >
-                              复制
-                            </Button>
+                            <Space size={4}>
+                              {onSendToChat && (
+                                <Tooltip title="发送到AI助手">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                                    onClick={() => onSendToChat(fullPrompt)}
+                                    style={{ fontSize: 11, padding: '0 4px', height: 20 }}
+                                  />
+                                </Tooltip>
+                              )}
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => handleCopy(fullPrompt)}
+                                style={{ fontSize: 11, padding: '0 4px', height: 20 }}
+                              >
+                                复制
+                              </Button>
+                            </Space>
                           </div>
                         </Card>
                       )

@@ -183,8 +183,13 @@ const ChatView = (props: ChatViewProps) => {
   // 处理外部传入的初始 Prompt
   useEffect(() => {
     if (initialPrompt) {
-      mentionInputRef.current?.setTextContent(initialPrompt)
-      onInitialPromptUsed?.()
+      /* 延迟执行，确保 MentionInput 的 contentEditable DOM 和 ref 完全就绪 */
+      const timer = setTimeout(() => {
+        mentionInputRef.current?.setTextContent(initialPrompt)
+        mentionInputRef.current?.focus()
+        onInitialPromptUsed?.()
+      }, 150)
+      return () => clearTimeout(timer)
     }
   }, [initialPrompt])
 

@@ -13,7 +13,8 @@ import {
   SettingOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
-  CloseOutlined
+  CloseOutlined,
+  CommentOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -35,6 +36,7 @@ const { RangePicker } = DatePicker
 interface HistoryViewerProps {
   onOpenSettings?: () => void
   darkMode: boolean
+  onSendToChat?: (content: string) => void
 }
 
 interface GroupedRecord {
@@ -47,7 +49,7 @@ interface GroupedRecord {
 
 type DateRange = '1d' | '7d' | '30d' | 'custom'
 
-function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
+function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewerProps) {
   // 使用会话元数据代替完整记录
   const [sessions, setSessions] = useState<SessionMetadata[]>([])
   const [loading, setLoading] = useState(true)
@@ -1165,6 +1167,21 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                         </Text>
                       </Space>
                     }
+                    extra={
+                      onSendToChat && (
+                        <Tooltip title="发送到AI助手">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSendToChat(record.display)
+                            }}
+                          />
+                        </Tooltip>
+                      )
+                    }
                   >
                     <Paragraph
                       ellipsis={{ rows: 2 }}
@@ -1216,6 +1233,21 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           >
             删除
           </Button>,
+          onSendToChat && (
+            <Button
+              key="sendToChat"
+              icon={<CommentOutlined />}
+              onClick={() => {
+                if (selectedRecord) {
+                  onSendToChat(selectedRecord.display)
+                  handleCloseRecordModal()
+                  handleCloseSessionModal()
+                }
+              }}
+            >
+              发送到AI助手
+            </Button>
+          ),
           <Button
             key="copy"
             icon={<CopyOutlined />}
@@ -1226,7 +1258,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
           <Button key="close" type="primary" onClick={handleCloseRecordModal}>
             关闭
           </Button>
-        ]}
+        ].filter(Boolean)}
         style={{ top: 60 }}
         styles={{
           body: {
