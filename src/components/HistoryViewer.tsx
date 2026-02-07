@@ -28,6 +28,7 @@ import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
 import SmartContent from './SmartContent'
 import CopyTextModal from './CopyTextModal'
+import CopyableImage, { getCopyablePreviewConfig } from './CopyableImage'
 
 // 设置 dayjs 中文语言
 dayjs.locale('zh-cn')
@@ -604,98 +605,16 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     })
   }
 
-  // 图片组件 - 使用 Ant Design Image
+  // 图片组件 - 使用可复制图片组件
   const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
-    const [imageData, setImageData] = useState<string | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-      // 检查缓存
-      if (imageCache.has(imagePath)) {
-        setImageData(imageCache.get(imagePath)!)
-        setLoading(false)
-        return
-      }
-
-      // 加载图片
-      const loadImage = async () => {
-        try {
-          const result = await window.electronAPI.readImage(imagePath)
-          if (result.success && result.data) {
-            setImageData(result.data)
-            // 更新缓存
-            setImageCache(prev => new Map(prev).set(imagePath, result.data!))
-          } else {
-            setError(result.error || '加载失败')
-          }
-        } catch (err: any) {
-          setError(err.message || '加载失败')
-        } finally {
-          setLoading(false)
-        }
-      }
-
-      loadImage()
-    }, [imagePath])
-
-    if (loading) {
-      return (
-        <div style={{
-          width: 64,
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: themeVars.codeBg,
-          borderRadius: 6,
-          border: `1px solid ${themeVars.border}`,
-          fontSize: 10,
-          color: themeVars.textSecondary
-        }}>
-          加载中...
-        </div>
-      )
-    }
-
-    if (error || !imageData) {
-      return (
-        <div style={{
-          width: 64,
-          height: 64,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: themeVars.codeBg,
-          borderRadius: 6,
-          border: `1px solid ${themeVars.border}`,
-          fontSize: 9,
-          color: themeVars.textSecondary,
-          textAlign: 'center',
-          padding: 4,
-          gap: 2
-        }}>
-          <span>❌</span>
-          <span style={{ fontSize: 8 }}>加载失败</span>
-        </div>
-      )
-    }
-
     return (
-      <Image
-        src={imageData}
-        alt={`Image ${index + 1}`}
-        width={64}
-        height={64}
-        style={{
-          objectFit: 'cover',
-          borderRadius: 6,
-          border: `1px solid ${themeVars.border}`,
-          cursor: 'pointer'
-        }}
-        preview={{
-          src: imageData
+      <CopyableImage
+        imagePath={imagePath}
+        index={index}
+        darkMode={darkMode}
+        imageCache={imageCache}
+        onCacheUpdate={(path, data) => {
+          setImageCache(prev => new Map(prev).set(path, data))
         }}
       />
     )
@@ -1279,7 +1198,9 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
 
                 {/* 图片网格 - 默认显示 */}
                 {selectedRecord.images && selectedRecord.images.length > 0 && (
-                  <Image.PreviewGroup>
+                  <Image.PreviewGroup
+                    preview={getCopyablePreviewConfig()}
+                  >
                     <div style={{
                       display: 'flex',
                       gap: 8,

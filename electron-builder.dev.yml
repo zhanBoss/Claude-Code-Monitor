@@ -29,6 +29,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
 
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+
 files:
   - dist/**/*
   - dist-electron/**/*

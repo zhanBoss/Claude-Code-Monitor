@@ -136,6 +136,8 @@ export interface ElectronAPI {
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件
   readImage: (imagePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+  // 复制图片到剪贴板（使用原生 nativeImage）
+  copyImageToClipboard: (base64Data: string) => Promise<{ success: boolean; error?: string }>
   // 读取文件内容（用于代码编辑器）
   readFileContent: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
   // 保存文件内容（用于代码编辑器）

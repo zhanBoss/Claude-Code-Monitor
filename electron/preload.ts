@@ -110,6 +110,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取图片文件
   readImage: (imagePath: string) => ipcRenderer.invoke('read-image', imagePath),
 
+  // 复制图片到剪贴板（使用原生 nativeImage）
+  copyImageToClipboard: (base64Data: string) => ipcRenderer.invoke('copy-image-to-clipboard', base64Data),
+
   // 读取文件内容（用于代码编辑器）
   readFileContent: (filePath: string) => ipcRenderer.invoke('read-file-content', filePath),
 

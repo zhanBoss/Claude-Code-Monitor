@@ -4,6 +4,7 @@ import {
   ipcMain,
   dialog,
   clipboard,
+  nativeImage,
   shell,
 } from "electron";
 import path from "path";
@@ -28,18 +29,29 @@ const HISTORY_FILE = path.join(CLAUDE_DIR, "history.jsonl");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 
 function createWindow() {
+  /* 应用图标路径：开发模式使用 build 目录，打包后使用 resources 目录 */
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "icon.png")
+    : path.join(__dirname, "..", "build", "icon.png");
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     titleBarStyle: "hiddenInset",
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  /* macOS Dock 图标设置 */
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(iconPath);
+  }
 
   // 开发模式：加载 Vite 开发服务器
   // 生产模式：加载打包后的文件
@@ -340,6 +352,24 @@ ipcMain.handle("copy-to-clipboard", async (_, text: string) => {
     return { success: false, error: (error as Error).message };
   }
 });
+
+// 复制图片到剪贴板（使用原生 nativeImage）
+ipcMain.handle(
+  "copy-image-to-clipboard",
+  async (_, base64Data: string) => {
+    try {
+      const image = nativeImage.createFromDataURL(base64Data);
+      if (image.isEmpty()) {
+        return { success: false, error: "无法解析图片数据" };
+      }
+      clipboard.writeImage(image);
+      return { success: true };
+    } catch (error) {
+      console.error("复制图片到剪贴板失败:", error);
+      return { success: false, error: (error as Error).message };
+    }
+  },
+);
 
 // 在 Finder 中打开文件夹
 ipcMain.handle("open-in-finder", async (_, folderPath: string) => {
