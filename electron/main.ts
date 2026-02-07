@@ -379,7 +379,7 @@ function startHistoryMonitor(savePath: string) {
   const stats = fs.statSync(HISTORY_FILE);
   lastFileSize = stats.size;
 
-  historyWatcher = fs.watch(HISTORY_FILE, (eventType) => {
+  historyWatcher = fs.watch(HISTORY_FILE, (eventType: string) => {
     if (eventType === "change") {
       readNewLines(savePath);
     }
@@ -411,8 +411,8 @@ function readNewLines(savePath: string) {
     });
 
     let buffer = "";
-    stream.on("data", (chunk) => {
-      buffer += chunk;
+    stream.on("data", (chunk: string | Buffer) => {
+      buffer += chunk.toString();
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
@@ -507,7 +507,7 @@ async function processRecord(record: any, savePath: string) {
           const allImageFiles = fs
             .readdirSync(imageCacheDir)
             .filter(
-              (f) =>
+              (f: string) =>
                 f.endsWith(".png") ||
                 f.endsWith(".jpg") ||
                 f.endsWith(".jpeg") ||
@@ -621,7 +621,9 @@ ipcMain.handle("read-history-metadata", async () => {
       return { success: false, error: "保存路径不存在" };
     }
 
-    const files = fs.readdirSync(savePath).filter((f) => f.endsWith(".jsonl"));
+    const files = fs
+      .readdirSync(savePath)
+      .filter((f: string) => f.endsWith(".jsonl"));
 
     if (files.length === 0) {
       return { success: true, sessions: [] };
@@ -643,7 +645,7 @@ ipcMain.handle("read-history-metadata", async () => {
       try {
         const filePath = path.join(savePath, file);
         const content = fs.readFileSync(filePath, "utf-8");
-        const lines = content.split("\n").filter((line) => line.trim());
+        const lines = content.split("\n").filter((line: string) => line.trim());
 
         for (const line of lines) {
           try {
@@ -708,7 +710,9 @@ ipcMain.handle("read-session-details", async (_, sessionId: string) => {
       return { success: false, error: "保存路径不存在" };
     }
 
-    const files = fs.readdirSync(savePath).filter((f) => f.endsWith(".jsonl"));
+    const files = fs
+      .readdirSync(savePath)
+      .filter((f: string) => f.endsWith(".jsonl"));
 
     if (files.length === 0) {
       return { success: true, records: [] };
@@ -720,7 +724,7 @@ ipcMain.handle("read-session-details", async (_, sessionId: string) => {
       try {
         const filePath = path.join(savePath, file);
         const content = fs.readFileSync(filePath, "utf-8");
-        const lines = content.split("\n").filter((line) => line.trim());
+        const lines = content.split("\n").filter((line: string) => line.trim());
 
         for (const line of lines) {
           try {
@@ -818,7 +822,9 @@ ipcMain.handle("read-history", async () => {
       return { success: false, error: "保存路径不存在" };
     }
 
-    const files = fs.readdirSync(savePath).filter((f) => f.endsWith(".jsonl"));
+    const files = fs
+      .readdirSync(savePath)
+      .filter((f: string) => f.endsWith(".jsonl"));
 
     if (files.length === 0) {
       return { success: true, records: [] };
@@ -835,7 +841,7 @@ ipcMain.handle("read-history", async () => {
       try {
         const filePath = path.join(savePath, file);
         const content = fs.readFileSync(filePath, "utf-8");
-        const lines = content.split("\n").filter((line) => line.trim());
+        const lines = content.split("\n").filter((line: string) => line.trim());
 
         for (const line of lines) {
           if (records.length >= MAX_RECORDS) break;
@@ -934,7 +940,7 @@ ipcMain.handle("export-records", async (_, options: any) => {
     }
 
     // 读取所有 .jsonl 文件
-    const files = fs.readdirSync(savePath).filter((f) => f.endsWith(".jsonl"));
+    const files = fs.readdirSync(savePath).filter((f: string) => f.endsWith(".jsonl"));
     if (files.length === 0) {
       return { success: false, error: "没有找到记录文件" };
     }
@@ -945,7 +951,7 @@ ipcMain.handle("export-records", async (_, options: any) => {
       try {
         const filePath = path.join(savePath, file);
         const content = fs.readFileSync(filePath, "utf-8");
-        const lines = content.split("\n").filter((line) => line.trim());
+        const lines = content.split("\n").filter((line: string) => line.trim());
 
         for (const line of lines) {
           try {
@@ -1261,14 +1267,14 @@ ${conversations}`,
           clearTimeout(timeoutId);
 
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+            const errorData = await response.json().catch(() => ({})) as any;
             return {
               success: false,
-              error: `Gemini API 错误: ${response.status} ${(errorData as any).error?.message || response.statusText}`,
+              error: `Gemini API 错误: ${response.status} ${errorData.error?.message || response.statusText}`,
             };
           }
 
-          const data = await response.json();
+          const data = await response.json() as any;
           const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
           if (!summary) {
@@ -1349,7 +1355,7 @@ ${conversations}`,
           };
         }
 
-        const data = await response.json();
+        const data = await response.json() as any;
 
         if (!data.choices || !data.choices[0] || !data.choices[0].message) {
           return {
@@ -1610,14 +1616,14 @@ ipcMain.handle(
       // 1. 找到包含该记录的文件
       const files = fs
         .readdirSync(savePath)
-        .filter((f) => f.endsWith(".jsonl"));
+        .filter((f: string) => f.endsWith(".jsonl"));
       let recordFound = false;
       let recordToDelete: any = null;
 
       for (const file of files) {
         const filePath = path.join(savePath, file);
         const content = fs.readFileSync(filePath, "utf-8");
-        const lines = content.split("\n").filter((line) => line.trim());
+        const lines = content.split("\n").filter((line: string) => line.trim());
         const newLines: string[] = [];
         let fileModified = false;
 
@@ -1785,7 +1791,7 @@ ipcMain.handle("uninstall-app", async () => {
     try {
       if (fs.existsSync(CLAUDE_DIR)) {
         const files = fs.readdirSync(CLAUDE_DIR);
-        files.forEach((file) => {
+        files.forEach((file: string) => {
           // 只删除备份文件，保留 settings.json 和 history.jsonl
           if (file.startsWith("settings.backup-") && file.endsWith(".json")) {
             const backupPath = path.join(CLAUDE_DIR, file);
@@ -2468,7 +2474,10 @@ function add(a, b) {
               {
                 parts: [
                   {
-                    text: systemPrompt + "\n\n--- 需要格式化的内容 ---\n\n" + request.content,
+                    text:
+                      systemPrompt +
+                      "\n\n--- 需要格式化的内容 ---\n\n" +
+                      request.content,
                   },
                 ],
               },
@@ -2488,7 +2497,7 @@ function add(a, b) {
           return { success: false, error: "Gemini API 调用失败" };
         }
 
-        const data = await response.json();
+        const data = await response.json() as any;
         formatted = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       } else {
         // OpenAI 兼容格式 (Groq, DeepSeek, 自定义)
@@ -2524,7 +2533,7 @@ function add(a, b) {
           return { success: false, error: "API 调用失败" };
         }
 
-        const data = await response.json();
+        const data = await response.json() as any;
         formatted = data.choices?.[0]?.message?.content || "";
       }
 
