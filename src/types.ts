@@ -27,6 +27,7 @@ export interface CommonCommand {
   name: string
   content: string
   pinned: boolean
+  order: number // 排序顺序，数字越小越靠前
   createdAt: number
   updatedAt: number
 }
@@ -188,6 +189,7 @@ export interface ElectronAPI {
   updateCommonCommand: (id: string, name: string, content: string) => Promise<{ success: boolean; error?: string }>
   deleteCommonCommand: (id: string) => Promise<{ success: boolean; error?: string }>
   togglePinCommand: (id: string) => Promise<{ success: boolean; error?: string }>
+  reorderCommands: (commands: CommonCommand[]) => Promise<{ success: boolean; error?: string }> // 新增：更新排序
   openCommonCommandsFile: () => Promise<{ success: boolean; error?: string }>
   // AI 对话
   chatStream: (

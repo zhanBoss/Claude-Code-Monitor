@@ -186,6 +186,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-common-command', id, name, content),
   deleteCommonCommand: (id: string) => ipcRenderer.invoke('delete-common-command', id),
   togglePinCommand: (id: string) => ipcRenderer.invoke('toggle-pin-command', id),
+  reorderCommands: (commands: any[]) => ipcRenderer.invoke('reorder-commands', commands),
   openCommonCommandsFile: () => ipcRenderer.invoke('open-common-commands-file'),
 
   // AI 对话流式响应

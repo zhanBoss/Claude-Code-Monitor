@@ -10,9 +10,11 @@ import {
   FileTextOutlined,
   SearchOutlined,
   CloseOutlined,
-  CommentOutlined
+  CommentOutlined,
+  HolderOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
+import { ReactSortable } from 'react-sortablejs'
 import { CommonCommand } from '../types'
 import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
@@ -197,8 +199,55 @@ const CommonPrompts = (props: CommonPromptsProps) => {
   const sortedCommands = [...commands].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1
     if (!a.pinned && b.pinned) return 1
-    return b.updatedAt - a.updatedAt
+    // 同组内按 order 字段排序，order 越小越靠前
+    return a.order - b.order
   })
+
+  // 分离置顶和非置顶的命令
+  const pinnedCommands = sortedCommands.filter(cmd => cmd.pinned)
+  const unpinnedCommands = sortedCommands.filter(cmd => !cmd.pinned)
+
+  // 处理拖拽排序（置顶组）
+  const handleReorderPinned = async (newList: CommonCommand[]) => {
+    // 更新本地状态
+    const updatedList = newList.map((cmd, index) => ({
+      ...cmd,
+      order: index
+    }))
+
+    // 合并置顶和非置顶
+    const allCommands = [...updatedList, ...unpinnedCommands]
+    setCommands(allCommands)
+
+    // 保存到后端
+    try {
+      await window.electronAPI.reorderCommands(allCommands)
+    } catch (error: any) {
+      message.error(`保存排序失败: ${error?.message || '未知错误'}`)
+      loadCommands() // 恢复原数据
+    }
+  }
+
+  // 处理拖拽排序（非置顶组）
+  const handleReorderUnpinned = async (newList: CommonCommand[]) => {
+    // 更�本地状态
+    const updatedList = newList.map((cmd, index) => ({
+      ...cmd,
+      order: index
+    }))
+
+    // 合并置顶和非置顶
+    const allCommands = [...pinnedCommands, ...updatedList]
+    setCommands(allCommands)
+
+    // 保存到后端
+    try {
+      await window.electronAPI.reorderCommands(allCommands)
+    } catch (error: any) {
+      message.error(`保存排序失败: ${error?.message || '未知错误'}`)
+      loadCommands() // 恢复原数据
+    }
+  }
 
   // 搜索过滤（仅用于搜索弹窗）
   const searchFilteredCommands = useMemo(() => {
@@ -212,6 +261,162 @@ const CommonPrompts = (props: CommonPromptsProps) => {
       command.content.toLowerCase().includes(keyword)
     )
   }, [sortedCommands, searchKeyword])
+
+  // 渲染单个 Prompt 卡片
+  const renderPromptCard = (command: CommonCommand, isDragging: boolean = false) => (
+    <div
+      key={command.id}
+      style={{
+        padding: '12px 12px 12px 40px', // 左侧留出空间给拖拽句柄
+        marginBottom: '12px',
+        borderRadius: '8px',
+        background: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
+        boxShadow: darkMode
+          ? '0 2px 8px rgba(0, 0, 0, 0.2)'
+          : '0 2px 8px rgba(0, 0, 0, 0.06)',
+        position: 'relative',
+        cursor: isDragging ? 'grabbing' : 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: clickingId === command.id
+          ? 'translate(4px, -4px)'
+          : 'translate(0, 0)',
+      }}
+      className="prompt-item"
+      onClick={(e) => {
+        // 如果在拖拽句柄上点击，不触发复制
+        const target = e.target as HTMLElement
+        if (target.closest('.drag-handle')) {
+          return
+        }
+        handleUse(command.content, command.id, e)
+      }}
+      onMouseEnter={(e) => {
+        const item = e.currentTarget as HTMLElement
+        item.style.transform = 'translate(4px, -4px)'
+      }}
+      onMouseLeave={(e) => {
+        const item = e.currentTarget as HTMLElement
+        if (clickingId !== command.id) {
+          item.style.transform = 'translate(0, 0)'
+        }
+      }}
+    >
+      {/* 拖拽句柄 - 左侧垂直居中 */}
+      <div
+        className="drag-handle"
+        style={{
+          position: 'absolute',
+          left: 12,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          opacity: 0,
+          transition: 'all 0.2s ease',
+          cursor: 'grab',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+        }}
+      >
+        <HolderOutlined
+          style={{
+            fontSize: 14,
+            color: themeVars.textSecondary,
+            transition: 'color 0.2s ease',
+          }}
+        />
+      </div>
+
+      {/* 操作按钮 - 仅在hover时显示 */}
+      <div
+        className="prompt-actions"
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 0,
+          opacity: 0,
+          transition: 'opacity 0.2s',
+          display: 'flex',
+          gap: 4,
+          zIndex: 5
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {onSendToChat && (
+          <Tooltip title="发送到AI助手">
+            <Button
+              type="text"
+              size="small"
+              icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+              onClick={() => onSendToChat(command.content)}
+            />
+          </Tooltip>
+        )}
+        <Tooltip title={command.pinned ? '取消置顶' : '置顶'}>
+          <Button
+            type="text"
+            size="small"
+            icon={command.pinned ? <PushpinFilled style={{ color: themeVars.primary }} /> : <PushpinOutlined />}
+            onClick={() => handleTogglePin(command.id)}
+          />
+        </Tooltip>
+        <Tooltip title="编辑">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(command)}
+          />
+        </Tooltip>
+        <Popconfirm
+          title="确定删除这个Prompt吗?"
+          onConfirm={() => handleDelete(command.id)}
+          okText="确定"
+          cancelText="取消"
+        >
+          <Tooltip title="删除">
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+            />
+          </Tooltip>
+        </Popconfirm>
+      </div>
+
+      <div style={{ paddingRight: 120 }}>
+        <Space size="small" style={{ marginBottom: 4 }}>
+          <Text strong style={{ fontSize: 14 }}>
+            {command.name}
+          </Text>
+          {command.pinned && (
+            <Tag icon={<PushpinFilled />} color="gold" style={{ fontSize: 11, padding: '0 4px' }}>
+              置顶
+            </Tag>
+          )}
+        </Space>
+        <div
+          style={{
+            fontSize: 12,
+            color: themeVars.textSecondary,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: 1.5,
+            marginTop: 4
+          }}
+        >
+          {command.content}
+        </div>
+      </div>
+    </div>
+  )
 
   const handleOpenFile = async () => {
     try {
@@ -313,131 +518,52 @@ const CommonPrompts = (props: CommonPromptsProps) => {
               </Button>
             </Empty>
           ) : (
-            <List
-              dataSource={sortedCommands}
-              renderItem={(command) => (
-                <List.Item
-                  style={{
-                    padding: '12px',
-                    marginBottom: '12px',
-                    borderRadius: '8px',
-                    background: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
-                    boxShadow: darkMode
-                      ? '0 2px 8px rgba(0, 0, 0, 0.2)'
-                      : '0 2px 8px rgba(0, 0, 0, 0.06)',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    transform: clickingId === command.id
-                      ? 'translate(4px, -4px)'
-                      : 'translate(0, 0)',
-                  }}
-                  className="prompt-item"
-                  onClick={(e) => handleUse(command.content, command.id, e)}
-                  onMouseEnter={(e) => {
-                    const item = e.currentTarget as HTMLElement
-                    item.style.transform = 'translate(4px, -4px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    const item = e.currentTarget as HTMLElement
-                    if (clickingId !== command.id) {
-                      item.style.transform = 'translate(0, 0)'
-                    }
-                  }}
+            <div>
+              {/* 置顶组 */}
+              {pinnedCommands.length > 0 && (
+                <ReactSortable
+                  list={pinnedCommands}
+                  setList={handleReorderPinned}
+                  animation={150}
+                  easing="cubic-bezier(0.4, 0, 0.2, 1)"
+                  handle=".drag-handle"
+                  ghostClass="sortable-ghost"
+                  chosenClass="sortable-chosen"
+                  dragClass="sortable-drag"
+                  forceFallback={false}
+                  fallbackTolerance={3}
+                  delay={0}
+                  delayOnTouchOnly={true}
+                  touchStartThreshold={5}
+                  group="pinned"
+                  style={{ marginBottom: pinnedCommands.length > 0 && unpinnedCommands.length > 0 ? 16 : 0 }}
                 >
-                  {/* 操作按钮 - 仅在hover时显示 */}
-                  <div
-                    className="prompt-actions"
-                    style={{
-                      position: 'absolute',
-                      top: 12,
-                      right: 0,
-                      opacity: 0,
-                      transition: 'opacity 0.2s',
-                      display: 'flex',
-                      gap: 4,
-                      zIndex: 5
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {onSendToChat && (
-                      <Tooltip title="发送到AI助手">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<CommentOutlined style={{ color: themeVars.primary }} />}
-                          onClick={() => onSendToChat(command.content)}
-                        />
-                      </Tooltip>
-                    )}
-                    <Tooltip title={command.pinned ? '取消置顶' : '置顶'}>
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={command.pinned ? <PushpinFilled style={{ color: themeVars.primary }} /> : <PushpinOutlined />}
-                        onClick={() => handleTogglePin(command.id)}
-                      />
-                    </Tooltip>
-                    <Tooltip title="编辑">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(command)}
-                      />
-                    </Tooltip>
-                    <Popconfirm
-                      title="确定删除这个Prompt吗?"
-                      onConfirm={() => handleDelete(command.id)}
-                      okText="确定"
-                      cancelText="取消"
-                    >
-                      <Tooltip title="删除">
-                        <Button
-                          type="text"
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                        />
-                      </Tooltip>
-                    </Popconfirm>
-                  </div>
-
-                  <List.Item.Meta
-                    title={
-                      <Space size="small">
-                        <Text strong style={{ fontSize: 14 }}>
-                          {command.name}
-                        </Text>
-                        {command.pinned && (
-                          <Tag icon={<PushpinFilled />} color="gold" style={{ fontSize: 11, padding: '0 4px' }}>
-                            置顶
-                          </Tag>
-                        )}
-                      </Space>
-                    }
-                    description={
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: themeVars.textSecondary,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          lineHeight: 1.5,
-                          marginTop: 4
-                        }}
-                      >
-                        {command.content}
-                      </div>
-                    }
-                  />
-                </List.Item>
+                  {pinnedCommands.map(command => renderPromptCard(command))}
+                </ReactSortable>
               )}
-            />
+
+              {/* 非置顶组 */}
+              {unpinnedCommands.length > 0 && (
+                <ReactSortable
+                  list={unpinnedCommands}
+                  setList={handleReorderUnpinned}
+                  animation={150}
+                  easing="cubic-bezier(0.4, 0, 0.2, 1)"
+                  handle=".drag-handle"
+                  ghostClass="sortable-ghost"
+                  chosenClass="sortable-chosen"
+                  dragClass="sortable-drag"
+                  forceFallback={false}
+                  fallbackTolerance={3}
+                  delay={0}
+                  delayOnTouchOnly={true}
+                  touchStartThreshold={5}
+                  group="unpinned"
+                >
+                  {unpinnedCommands.map(command => renderPromptCard(command))}
+                </ReactSortable>
+              )}
+            </div>
           )}
         </Card>
       </div>
@@ -659,11 +785,62 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           opacity: 1 !important;
         }
 
+        .prompt-item:hover .drag-handle {
+          opacity: 1 !important;
+        }
+
+        /* 拖拽句柄悬停效果 */
+        .drag-handle:hover svg {
+          color: ${themeVars.primary} !important;
+          transform: scale(1.1);
+        }
+
+        .drag-handle:active {
+          cursor: grabbing !important;
+        }
+
         .prompt-item:hover {
           background: ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)'} !important;
           box-shadow: ${darkMode
             ? '0 6px 16px rgba(0, 0, 0, 0.4)'
             : '0 6px 16px rgba(0, 0, 0, 0.12)'} !important;
+        }
+
+        /* 拖拽时的半透明占位符 */
+        .sortable-ghost {
+          opacity: 0.3 !important;
+          background: ${darkMode ? 'rgba(102, 126, 234, 0.1)' : 'rgba(102, 126, 234, 0.08)'} !important;
+          border: 2px dashed ${themeVars.primary} !important;
+          box-shadow: none !important;
+        }
+
+        /* 被选中时的效果 */
+        .sortable-chosen {
+          cursor: grabbing !important;
+          opacity: 0.95 !important;
+        }
+
+        /* 拖拽过程中的卡片样式 */
+        .sortable-drag {
+          opacity: 1 !important;
+          transform: rotate(2deg) scale(1.02) !important;
+          box-shadow: ${darkMode
+            ? '0 12px 32px rgba(0, 0, 0, 0.6)'
+            : '0 12px 32px rgba(0, 0, 0, 0.25)'} !important;
+          background: ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} !important;
+          border: 1px solid ${themeVars.primary}40 !important;
+          z-index: 9999 !important;
+        }
+
+        /* 拖拽时隐藏其他元素，保持焦点 */
+        .sortable-drag .prompt-actions,
+        .sortable-drag .drag-handle {
+          opacity: 0 !important;
+        }
+
+        /* 平滑的过渡动画 */
+        .prompt-item {
+          will-change: transform, opacity;
         }
       `}</style>
     </>

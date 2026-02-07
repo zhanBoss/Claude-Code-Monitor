@@ -2828,11 +2828,17 @@ ipcMain.handle(
   async (_, name: string, content: string) => {
     try {
       const commands = store.get("commonCommands", []) as any[];
+      // 计算新命令的 order：取当前最大 order + 1
+      const maxOrder = commands.length > 0
+        ? Math.max(...commands.map(cmd => cmd.order || 0))
+        : -1;
+
       const newCommand = {
         id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
         name,
         content,
         pinned: false,
+        order: maxOrder + 1, // 新命令排在最后
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -2923,6 +2929,18 @@ ipcMain.handle("open-common-commands-file", async () => {
     return { success: true };
   } catch (error) {
     console.error("打开配置文件失败:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// 更新命令排序
+ipcMain.handle("reorder-commands", async (_, commands: any[]) => {
+  try {
+    // 保存更新后的命令列表
+    store.set("commonCommands", commands);
+    return { success: true };
+  } catch (error) {
+    console.error("更新排序失败:", error);
     return { success: false, error: (error as Error).message };
   }
 });
