@@ -38,12 +38,19 @@ export interface ProviderConfig {
   model: string
 }
 
-// AI 设置接口
-export interface AISettings {
+// AI 对话设置接口（简化版，只需三个字段）
+export interface AIChatSettings {
+  apiKey: string
+  apiBaseUrl: string
+  model: string
+}
+
+// AI 总结设置接口（包含 enabled 和格式化功能）
+export interface AISummarySettings {
   enabled: boolean
   provider: 'deepseek' | 'groq' | 'gemini' | 'custom'
-  autoFormatPrompt?: boolean // AI 自动格式化 Prompt 开关
-  formatTimeout?: number // 格式化超时时间（毫秒）
+  autoFormatPrompt?: boolean // AI 自动格式化 Prompt 开关（默认开启）
+  formatTimeout?: number // 格式化超时时间（毫秒，默认 15000）
   // 每个提供商的独立配置
   providers: {
     deepseek: ProviderConfig
@@ -70,7 +77,10 @@ export interface ClaudeConfigBackup {
 export interface AppSettings {
   themeMode: 'light' | 'dark' | 'system'
   autoStart: boolean
-  ai: AISettings
+  // AI 对话配置（用于 ChatView，无需 enabled）
+  aiChat: AIChatSettings
+  // AI 总结配置（用于 Summary 功能，包含 enabled 和格式化）
+  aiSummary: AISummarySettings
   claudeConfigBackups?: ClaudeConfigBackup[]
 }
 
@@ -195,7 +205,6 @@ export interface ChatContext {
 // AI 对话请求
 export interface ChatRequest {
   messages: ChatMessage[]
-  provider?: 'deepseek' | 'groq' | 'gemini' | 'custom'
 }
 
 // AI 对话响应

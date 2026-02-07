@@ -433,7 +433,8 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
       // 检查 AI 配置
       const settings = await window.electronAPI.getAppSettings()
 
-      if (!settings.ai.enabled) {
+      // 使用 aiSummary 配置（总结配置）
+      if (!settings.aiSummary.enabled) {
         Modal.confirm({
           title: 'AI 总结功能需要配置',
           content: '使用 AI 总结功能需要先配置 API Key，是否前往设置？',
@@ -447,7 +448,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         return
       }
 
-      const currentProvider = settings.ai.providers[settings.ai.provider]
+      const currentProvider = settings.aiSummary.providers[settings.aiSummary.provider]
       if (!currentProvider || !currentProvider.apiKey) {
         Modal.confirm({
           title: '配置 API Key',
@@ -1044,7 +1045,24 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         maskClosable={true}
         keyboard={true}
         width="70%"
-        footer={null}
+        footer={[
+          <Button
+            key="summarize"
+            type="default"
+            icon={<StarOutlined />}
+            loading={summarizing}
+            onClick={() => {
+              if (selectedSession) {
+                handleSummarize(selectedSession)
+              }
+            }}
+          >
+            AI 总结
+          </Button>,
+          <Button key="close" type="primary" onClick={handleCloseSessionModal}>
+            关闭
+          </Button>
+        ]}
         style={{ top: 40 }}
         styles={{
           body: {
@@ -1356,6 +1374,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             overflowY: 'auto'
           } as React.CSSProperties
         }}
+        zIndex={1004}
       >
         <div style={{ fontSize: 14, lineHeight: 1.8 }}>
           {renderMarkdown(summaryContent)}

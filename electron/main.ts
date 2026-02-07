@@ -188,34 +188,45 @@ ipcMain.handle(
 
 // 获取应用设置
 ipcMain.handle("get-app-settings", async () => {
+  const defaultProviders = {
+    groq: {
+      apiKey: "",
+      apiBaseUrl: "https://api.groq.com/openai/v1",
+      model: "llama-3.3-70b-versatile",
+    },
+    deepseek: {
+      apiKey: "",
+      apiBaseUrl: "https://api.deepseek.com/v1",
+      model: "deepseek-chat",
+    },
+    gemini: {
+      apiKey: "",
+      apiBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      model: "gemini-2.0-flash-exp",
+    },
+    custom: {
+      apiKey: "",
+      apiBaseUrl: "",
+      model: "",
+    },
+  };
+
   const defaultSettings = {
     themeMode: "system" as "light" | "dark" | "system",
     autoStart: false,
-    ai: {
+    // AI 对话配置（简化版，只需三个字段）
+    aiChat: {
+      apiKey: "",
+      apiBaseUrl: "",
+      model: "",
+    },
+    // AI 总结配置（包含 enabled 和自动格式化）
+    aiSummary: {
       enabled: false,
       provider: "groq" as "groq" | "deepseek" | "gemini" | "custom",
-      providers: {
-        groq: {
-          apiKey: "",
-          apiBaseUrl: "https://api.groq.com/openai/v1",
-          model: "llama-3.3-70b-versatile",
-        },
-        deepseek: {
-          apiKey: "",
-          apiBaseUrl: "https://api.deepseek.com/v1",
-          model: "deepseek-chat",
-        },
-        gemini: {
-          apiKey: "",
-          apiBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.0-flash-exp",
-        },
-        custom: {
-          apiKey: "",
-          apiBaseUrl: "",
-          model: "",
-        },
-      },
+      autoFormatPrompt: true, // 默认开启自动格式化
+      formatTimeout: 15000,
+      providers: defaultProviders,
     },
   };
 
@@ -234,35 +245,59 @@ ipcMain.handle("get-app-settings", async () => {
     "autoStart",
     defaultSettings.autoStart,
   ) as boolean;
-  let ai = store.get("ai", defaultSettings.ai) as any;
 
-  // 兼容旧的单一配置结构，迁移到新的多提供商结构
-  if (ai && !ai.providers) {
-    const oldProvider: "groq" | "deepseek" | "gemini" | "custom" =
-      (ai.provider as any) || "groq";
-    const oldApiKey = (ai as any).apiKey || "";
-    const oldApiBaseUrl =
-      (ai as any).apiBaseUrl ||
-      defaultSettings.ai.providers[oldProvider].apiBaseUrl;
-    const oldModel =
-      (ai as any).model || defaultSettings.ai.providers[oldProvider].model;
+  // 数据迁移：从旧的 ai 配置迁移到新的 aiChat 和 aiSummary 配置
+  const oldAi = store.get("ai", null) as any;
 
-    ai = {
-      enabled: ai.enabled || false,
-      provider: oldProvider,
-      providers: {
-        ...defaultSettings.ai.providers,
-        [oldProvider]: {
-          apiKey: oldApiKey,
-          apiBaseUrl: oldApiBaseUrl,
-          model: oldModel,
-        },
-      },
-    };
-    store.set("ai", ai);
+  let aiChat = store.get("aiChat", null) as any;
+  let aiSummary = store.get("aiSummary", null) as any;
+
+  // 如果旧配置存在且新配置不存在，执行迁移
+  if (oldAi && (!aiChat || !aiSummary)) {
+    console.log("[数据迁移] 检测到旧的 AI 配置，开始迁移...");
+
+    // 迁移到 aiChat（对话配置简化为三个字段）
+    if (!aiChat) {
+      const oldProvider = oldAi.provider || "deepseek";
+      const oldProviderConfig = oldAi.providers?.[oldProvider] || {};
+
+      aiChat = {
+        apiKey: oldProviderConfig.apiKey || "",
+        apiBaseUrl: oldProviderConfig.apiBaseUrl || "",
+        model: oldProviderConfig.model || "",
+      };
+      store.set("aiChat", aiChat);
+    }
+
+    // 迁移到 aiSummary（总结配置继承旧配置，包含 enabled 和格式化）
+    if (!aiSummary) {
+      aiSummary = {
+        enabled: oldAi.enabled || false,
+        provider: oldAi.provider || "groq",
+        autoFormatPrompt: oldAi.autoFormatPrompt ?? true, // 默认开启
+        formatTimeout: oldAi.formatTimeout || 15000,
+        providers: oldAi.providers || defaultProviders,
+      };
+      store.set("aiSummary", aiSummary);
+    }
+
+    // 删除旧配置
+    store.delete("ai");
+    console.log("[数据迁移] 迁移完成，已删除旧配置");
   }
 
-  return { themeMode, autoStart, ai };
+  // 如果没有旧配置，使用默认值
+  if (!aiChat) {
+    aiChat = defaultSettings.aiChat;
+    store.set("aiChat", aiChat);
+  }
+
+  if (!aiSummary) {
+    aiSummary = defaultSettings.aiSummary;
+    store.set("aiSummary", aiSummary);
+  }
+
+  return { themeMode, autoStart, aiChat, aiSummary };
 });
 
 // 保存应用设置
@@ -273,14 +308,18 @@ ipcMain.handle(
     settings: {
       themeMode: "light" | "dark" | "system";
       autoStart: boolean;
-      ai: any;
+      aiChat: any;
+      aiSummary: any;
     },
   ) => {
     try {
       store.set("themeMode", settings.themeMode);
       store.set("autoStart", settings.autoStart);
-      if (settings.ai) {
-        store.set("ai", settings.ai);
+      if (settings.aiChat) {
+        store.set("aiChat", settings.aiChat);
+      }
+      if (settings.aiSummary) {
+        store.set("aiSummary", settings.aiSummary);
       }
 
       // 设置开机自启
@@ -1091,10 +1130,10 @@ ipcMain.handle(
   "summarize-records",
   async (event, request: { records: any[]; type: "brief" | "detailed" }) => {
     try {
-      // 获取 AI 设置
-      const aiSettings = store.get("ai") as any;
+      // 获取 AI 总结设置（使用独立的 aiSummary 配置）
+      const aiSummarySettings = store.get("aiSummary") as any;
 
-      if (!aiSettings || !aiSettings.enabled) {
+      if (!aiSummarySettings || !aiSummarySettings.enabled) {
         return {
           success: false,
           error: "AI 总结功能未启用，请先在设置中启用",
@@ -1102,8 +1141,8 @@ ipcMain.handle(
       }
 
       const provider: "groq" | "deepseek" | "gemini" | "custom" =
-        aiSettings.provider || "groq";
-      const currentConfig = aiSettings.providers?.[provider];
+        aiSummarySettings.provider || "groq";
+      const currentConfig = aiSummarySettings.providers?.[provider];
 
       if (!currentConfig || !currentConfig.apiKey) {
         const providerNames: Record<
@@ -1357,10 +1396,10 @@ ipcMain.handle(
   "summarize-records-stream",
   async (event, request: { records: any[]; type: "brief" | "detailed" }) => {
     try {
-      // 获取 AI 设置（复用相同的验证逻辑）
-      const aiSettings = store.get("ai") as any;
+      // 获取 AI 总结设置（使用独立的 aiSummary 配置）
+      const aiSummarySettings = store.get("aiSummary") as any;
 
-      if (!aiSettings || !aiSettings.enabled) {
+      if (!aiSummarySettings || !aiSummarySettings.enabled) {
         event.sender.send(
           "summary-stream-error",
           "AI 总结功能未启用，请先在设置中启用",
@@ -1369,8 +1408,8 @@ ipcMain.handle(
       }
 
       const provider: "groq" | "deepseek" | "gemini" | "custom" =
-        aiSettings.provider || "groq";
-      const currentConfig = aiSettings.providers?.[provider];
+        aiSummarySettings.provider || "groq";
+      const currentConfig = aiSummarySettings.providers?.[provider];
 
       if (!currentConfig || !currentConfig.apiKey) {
         const providerNames: Record<"groq" | "deepseek" | "gemini", string> = {
@@ -2148,7 +2187,7 @@ ipcMain.handle(
     try {
       const commands = store.get("commonCommands", []) as any[];
       const newCommand = {
-        id: `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
         name,
         content,
         pinned: false,
@@ -2255,33 +2294,26 @@ ipcMain.handle(
     event,
     request: {
       messages: any[];
-      provider?: "deepseek" | "groq" | "gemini" | "custom";
     },
   ) => {
     try {
-      const aiSettings = store.get("ai") as any;
+      // 获取 AI 对话设置（简化版，只有三个字段）
+      const aiChatSettings = store.get("aiChat") as any;
 
-      if (!aiSettings || !aiSettings.enabled) {
+      if (!aiChatSettings) {
         event.sender.send(
           "chat-stream-error",
-          "AI 功能未启用，请先在设置中启用",
+          "AI 配置未找到，请前往设置页面配置",
         );
         return;
       }
 
-      const provider: "groq" | "deepseek" | "gemini" | "custom" =
-        request.provider || aiSettings.provider || "deepseek";
-      const currentConfig = aiSettings.providers?.[provider];
+      const { apiKey, apiBaseUrl, model } = aiChatSettings;
 
-      if (!currentConfig || !currentConfig.apiKey) {
-        const providerNames: Record<"groq" | "deepseek" | "gemini", string> = {
-          groq: "Groq",
-          deepseek: "DeepSeek",
-          gemini: "Google Gemini",
-        };
+      if (!apiKey || !apiBaseUrl || !model) {
         event.sender.send(
           "chat-stream-error",
-          `未配置 ${providerNames[provider as "groq" | "deepseek" | "gemini"] || "AI"} API Key，请前往设置页面配置`,
+          "AI 配置不完整，请填写 API Key、API 地址和模型名称",
         );
         return;
       }
@@ -2291,81 +2323,22 @@ ipcMain.handle(
         return;
       }
 
-      // Gemini 使用非流式模式
-      if (provider === "gemini") {
-        try {
-          // 提取系统提示词和对话消息
-          const systemMessage = request.messages.find(
-            (m: any) => m.role === "system",
-          );
-          const chatMessages = request.messages
-            .filter((m: any) => m.role !== "system")
-            .map((m: any) => ({
-              role: m.role === "user" ? "user" : "model",
-              parts: [{ text: m.content }],
-            }));
-
-          const geminiBody: any = {
-            contents: chatMessages,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 4000,
-            },
-          };
-
-          // 添加系统指令
-          if (systemMessage?.content) {
-            geminiBody.systemInstruction = {
-              parts: [{ text: systemMessage.content }],
-            };
-          }
-
-          const geminiResponse = await httpRequest<Response>({
-            url: `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(geminiBody),
-            webContents: event.sender,
-          });
-
-          const geminiData = await geminiResponse.json();
-          const content = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-          if (!content) {
-            event.sender.send(
-              "chat-stream-error",
-              "Gemini 返回了空响应，请重试",
-            );
-            return;
-          }
-
-          event.sender.send("chat-stream-chunk", content);
-          event.sender.send("chat-stream-complete");
-        } catch (geminiError: any) {
-          event.sender.send(
-            "chat-stream-error",
-            geminiError.message || "Gemini 对话失败",
-          );
-        }
-        return;
-      }
-
       // 清理消息格式，只保留 role 和 content（API 不接受多余字段）
       const cleanedMessages = request.messages.map((m: any) => ({
         role: m.role,
         content: m.content,
       }));
 
-      // OpenAI 兼容格式的流式请求 (DeepSeek, Groq, 自定义)
+      // OpenAI 兼容格式的流式请求
       const response = await httpRequest<Response>({
-        url: `${currentConfig.apiBaseUrl}/chat/completions`,
+        url: `${apiBaseUrl}/chat/completions`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${currentConfig.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: currentConfig.model,
+          model: model,
           messages: cleanedMessages,
           temperature: 0.7,
           max_tokens: 4000,
@@ -2434,14 +2407,15 @@ ipcMain.handle(
     },
   ): Promise<{ success: boolean; formatted?: string; error?: string }> => {
     try {
-      const aiSettings = store.get("ai") as any;
+      // 使用 AI 总结配置（格式化是轻量任务，用总结 API 更合适）
+      const aiSummarySettings = store.get("aiSummary") as any;
 
       // 检查 AI 功能和格式化开关
-      if (!aiSettings || !aiSettings.enabled) {
+      if (!aiSummarySettings || !aiSummarySettings.enabled) {
         return { success: false, error: "AI 功能未启用" };
       }
 
-      if (!aiSettings.autoFormatPrompt) {
+      if (!aiSummarySettings.autoFormatPrompt) {
         return { success: false, error: "自动格式化功能未启用" };
       }
 
@@ -2455,8 +2429,8 @@ ipcMain.handle(
       }
 
       const provider: "groq" | "deepseek" | "gemini" | "custom" =
-        aiSettings.provider || "deepseek";
-      const currentConfig = aiSettings.providers?.[provider];
+        aiSummarySettings.provider || "groq";
+      const currentConfig = aiSummarySettings.providers?.[provider];
 
       if (!currentConfig || !currentConfig.apiKey) {
         return { success: false, error: "AI 配置不完整" };
@@ -2483,7 +2457,7 @@ function add(a, b) {
 }
 \`\`\``;
 
-      const timeout = aiSettings.formatTimeout || 15000; // 默认15秒超时
+      const timeout = aiSummarySettings.formatTimeout || 15000; // 默认15秒超时
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 

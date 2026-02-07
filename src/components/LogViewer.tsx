@@ -39,6 +39,9 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // 记录配置状态
   const [recordConfig, setRecordConfig] = useState<RecordConfig | null>(null)
 
+  // AI 格式化配置
+  const [enableAIFormat, setEnableAIFormat] = useState(false)
+
   // AI 总结相关状态
   const [summarizing, setSummarizing] = useState(false)
   const [summaryContent, setSummaryContent] = useState<string>('')
@@ -75,6 +78,20 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       }
     }
     loadConfig()
+  }, [])
+
+  // 加载 AI 格式化配置
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await window.electronAPI.getAppSettings()
+        // 使用 aiSummary.autoFormatPrompt 控制是否启用 AI 格式化
+        setEnableAIFormat(settings.aiSummary.autoFormatPrompt ?? true)
+      } catch (error) {
+        console.error('加载设置失败:', error)
+      }
+    }
+    loadSettings()
   }, [])
 
   // 监听 Cmd+F 快捷键
@@ -257,7 +274,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       // 检查 AI 配置
       const settings = await window.electronAPI.getAppSettings()
 
-      if (!settings.ai.enabled) {
+      // 使用 aiSummary 配置（总结配置）
+      if (!settings.aiSummary.enabled) {
         Modal.confirm({
           title: '启用 AI 总结功能',
           content: 'AI 总结功能尚未启用，是否前往设置？',
@@ -272,7 +290,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         return
       }
 
-      const currentProvider = settings.ai.providers[settings.ai.provider]
+      const currentProvider = settings.aiSummary.providers[settings.aiSummary.provider]
       if (!currentProvider || !currentProvider.apiKey) {
         Modal.confirm({
           title: '配置 API Key',
@@ -354,6 +372,121 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
 
       // 不需要处理 result，因为流式输出在回调中处理
       return
+
+    } catch (error: any) {
+      setSummarizing(false)
+      message.error(`总结失败: ${error.message || '未知错误'}`, 5)
+    }
+  }
+
+  // 处理单个会话总结
+  const handleSummarizeSession = async (session: GroupedRecord) => {
+    if (session.records.length === 0) {
+      message.warning('该会话没有对话记录')
+      return
+    }
+
+    setSummarizing(true)
+
+    try {
+      // 检查 AI 配置
+      const settings = await window.electronAPI.getAppSettings()
+
+      // 使用 aiSummary 配置（总结配置）
+      if (!settings.aiSummary.enabled) {
+        Modal.confirm({
+          title: '启用 AI 总结功能',
+          content: 'AI 总结功能尚未启用，是否前往设置？',
+          okText: '去设置',
+          cancelText: '取消',
+          onOk: () => {
+            onOpenSettings?.()
+          },
+          ...getElectronModalConfig()
+        })
+        setSummarizing(false)
+        return
+      }
+
+      const currentProvider = settings.aiSummary.providers[settings.aiSummary.provider]
+      if (!currentProvider || !currentProvider.apiKey) {
+        Modal.confirm({
+          title: '配置 API Key',
+          content: `尚未配置 API Key，是否前往设置？`,
+          okText: '去设置',
+          cancelText: '取消',
+          onOk: () => {
+            onOpenSettings?.()
+          },
+          ...getElectronModalConfig()
+        })
+        setSummarizing(false)
+        return
+      }
+
+      // 先打开弹窗，显示"正在生成总结..."
+      setSummaryContent('正在生成总结...')
+      setSummaryModalVisible(true)
+
+      let fullSummary = ''
+
+      // 调用流式总结接口
+      await window.electronAPI.summarizeRecordsStream(
+        {
+          records: session.records,
+          type: 'detailed'
+        },
+        // onChunk: 接收到新内容时追加
+        (chunk: string) => {
+          fullSummary += chunk
+          setSummaryContent(fullSummary)
+        },
+        // onComplete: 总结完成
+        () => {
+          setSummarizing(false)
+        },
+        // onError: 出错时处理
+        (error: string) => {
+          setSummarizing(false)
+          setSummaryModalVisible(false)
+
+          // 显示详细的错误信息
+          if (error.includes('余额不足') || error.includes('402')) {
+            Modal.error({
+              title: 'AI 总结失败',
+              content: (
+                <div>
+                  <p>{error}</p>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
+                    提示：你可以前往相应平台充值后继续使用
+                  </p>
+                </div>
+              ),
+              okText: '我知道了',
+              ...getElectronModalConfig()
+            })
+          } else if (error.includes('API Key')) {
+            Modal.error({
+              title: 'AI 总结失败',
+              content: (
+                <div>
+                  <p>{error}</p>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
+                    提示：请前往设置页面重新配置 API Key
+                  </p>
+                </div>
+              ),
+              okText: '前往设置',
+              onOk: () => {
+                onOpenSettings?.()
+              },
+              ...getElectronModalConfig()
+            })
+          } else {
+            message.error(`总结失败: ${error}`, 5)
+          }
+        }
+      )
 
     } catch (error: any) {
       setSummarizing(false)
@@ -679,10 +812,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                           type="text"
                           size="small"
                           icon={<StarOutlined />}
-                          onClick={() => {
-                            // TODO: 实现单个会话的 AI 总结
-                            message.info('功能开发中')
-                          }}
+                          loading={summarizing}
+                          onClick={() => handleSummarizeSession(group)}
                         />
                       </Tooltip>
                     </Space>
@@ -986,6 +1117,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         onClose={() => setCopyTextModalVisible(false)}
         content={copyTextModalContent}
         darkMode={darkMode}
+        enableAIFormat={enableAIFormat}
       />
 
       {/* 文件查看器 */}

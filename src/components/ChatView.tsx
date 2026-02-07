@@ -21,7 +21,7 @@ import {
   CopyOutlined,
   CheckOutlined
 } from '@ant-design/icons'
-import { ChatMessage, CommonCommand, AISettings, ClaudeRecord } from '../types'
+import { ChatMessage, CommonCommand, AIChatSettings, ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
 import ElectronModal from './ElectronModal'
 import MentionInput, { MentionInputRef, MentionItem } from './MentionInput'
@@ -280,30 +280,6 @@ const SYSTEM_PROMPTS = {
   }
 }
 
-/* 提供商选项 */
-const PROVIDER_OPTIONS = [
-  { label: 'DeepSeek', value: 'deepseek' },
-  { label: 'Groq', value: 'groq' },
-  { label: 'Gemini', value: 'gemini' },
-  { label: '自定义', value: 'custom' }
-]
-
-/* 提供商显示名称 */
-const PROVIDER_NAMES: Record<string, string> = {
-  deepseek: 'DeepSeek',
-  groq: 'Groq',
-  gemini: 'Gemini',
-  custom: '自定义'
-}
-
-/* 提供商 API Key 获取地址 */
-const PROVIDER_DOCS: Record<string, string> = {
-  deepseek: 'https://platform.deepseek.com/api_keys',
-  groq: 'https://console.groq.com/keys',
-  gemini: 'https://aistudio.google.com/apikey',
-  custom: ''
-}
-
 /* 紧凑模式阈值 */
 const COMPACT_BREAKPOINT = 880
 
@@ -334,7 +310,7 @@ const ChatView = (props: ChatViewProps) => {
   const themeVars = getThemeVars(darkMode)
 
   // AI 设置
-  const [aiSettings, setAiSettings] = useState<AISettings | null>(null)
+  const [aiSettings, setAiSettings] = useState<AIChatSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
 
   // 对话状态
@@ -343,10 +319,8 @@ const ChatView = (props: ChatViewProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const [systemPromptType, setSystemPromptType] = useState<keyof typeof SYSTEM_PROMPTS>('claude-code-expert')
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
-  const [selectedProvider, setSelectedProvider] = useState<'deepseek' | 'groq' | 'gemini' | 'custom'>('deepseek')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [streamingMessage, setStreamingMessage] = useState('')
-  const prevProviderRef = useRef(selectedProvider)
   const prevSystemPromptRef = useRef(systemPromptType)
 
   // Prompt 选择器
@@ -387,8 +361,7 @@ const ChatView = (props: ChatViewProps) => {
     const loadSettings = async () => {
       try {
         const settings = await window.electronAPI.getAppSettings()
-        setAiSettings(settings.ai)
-        setSelectedProvider(settings.ai.provider)
+        setAiSettings(settings.aiChat)
       } catch (error) {
         console.error('加载 AI 设置失败:', error)
       } finally {
@@ -424,35 +397,14 @@ const ChatView = (props: ChatViewProps) => {
     }
   }, [initialPrompt])
 
-  // 当前提供商是否已配置好
+  // 检查 AI 配置是否完整
   const providerReady = useMemo(() => {
     if (!aiSettings) return false
-    if (!aiSettings.enabled) return false
-    const config = aiSettings.providers?.[selectedProvider]
-    if (!config) return false
-    if (!config.apiKey) return false
-    if (selectedProvider === 'custom') {
-      return !!(config.apiBaseUrl && config.model)
-    }
+    if (!aiSettings.apiKey) return false
+    if (!aiSettings.apiBaseUrl) return false
+    if (!aiSettings.model) return false
     return true
-  }, [aiSettings, selectedProvider])
-
-  // 监听提供商切换，有对话时提示用户
-  useEffect(() => {
-    if (prevProviderRef.current !== selectedProvider && messages.length > 0 && !isLoading) {
-      Modal.confirm({
-        title: '切换 AI 提供商',
-        content: '切换提供商可能导致对话上下文不一致，是否清空当前对话？',
-        okText: '清空对话',
-        cancelText: '保留对话',
-        onOk: () => {
-          setMessages([])
-          setStreamingMessage('')
-        }
-      })
-    }
-    prevProviderRef.current = selectedProvider
-  }, [selectedProvider, messages.length, isLoading])
+  }, [aiSettings])
 
   // 监听系统提示词切换，有对话时提示用户
   useEffect(() => {
@@ -466,14 +418,10 @@ const ChatView = (props: ChatViewProps) => {
     prevSystemPromptRef.current = systemPromptType
   }, [systemPromptType, messages.length, isLoading])
 
-  // AI 是否已启用
-  const aiEnabled = useMemo(() => aiSettings?.enabled ?? false, [aiSettings])
-
   // 当前模型名称
   const currentModelName = useMemo(() => {
-    if (!aiSettings?.providers?.[selectedProvider]) return ''
-    return aiSettings.providers[selectedProvider].model || ''
-  }, [aiSettings, selectedProvider])
+    return aiSettings?.model || ''
+  }, [aiSettings])
 
   // 搜索过滤后的常用 Prompt
   const filteredPrompts = useMemo(() => {
@@ -673,7 +621,7 @@ const ChatView = (props: ChatViewProps) => {
         : [...messages, userMessage]
 
       await window.electronAPI.chatStream(
-        { messages: messagesToSend, provider: selectedProvider },
+        { messages: messagesToSend },
         (chunk: string) => {
           streamContent += chunk
           setStreamingMessage(streamContent)
@@ -690,11 +638,15 @@ const ChatView = (props: ChatViewProps) => {
           ])
           setStreamingMessage('')
           setIsLoading(false)
+          // 发送完成后重新聚焦输入框
+          mentionInputRef.current?.focus()
         },
         (error: string) => {
           message.error(`对话失败: ${error}`)
           setIsLoading(false)
           setStreamingMessage('')
+          // 错误后也重新聚焦输入框
+          mentionInputRef.current?.focus()
         }
       )
     } catch (error) {
@@ -1083,10 +1035,7 @@ const ChatView = (props: ChatViewProps) => {
   )
 
   // 渲染引导页
-  const renderGuidancePage = (type: 'disabled' | 'unconfigured') => {
-    const providerName = PROVIDER_NAMES[selectedProvider] || selectedProvider
-    const docUrl = PROVIDER_DOCS[selectedProvider]
-
+  const renderGuidancePage = () => {
     return (
       <div style={{
         height: '100%',
@@ -1118,20 +1067,6 @@ const ChatView = (props: ChatViewProps) => {
           {!isCompact && (
             <Text strong style={{ color: themeVars.text, fontSize: 15 }}>AI 助手</Text>
           )}
-
-          {type === 'unconfigured' && (
-            <>
-              <div style={{ width: 1, height: 16, background: themeVars.borderSecondary }} />
-              <Select
-                value={selectedProvider}
-                onChange={setSelectedProvider}
-                style={{ width: 120 }}
-                size="small"
-                options={PROVIDER_OPTIONS}
-                variant="borderless"
-              />
-            </>
-          )}
         </div>
 
         {/* 引导内容 */}
@@ -1160,45 +1095,16 @@ const ChatView = (props: ChatViewProps) => {
               justifyContent: 'center',
               margin: '0 auto 20px'
             }}>
-              {type === 'disabled' ? (
-                <SettingOutlined style={{ fontSize: 28, color: themeVars.primary }} />
-              ) : (
-                <ApiOutlined style={{ fontSize: 28, color: themeVars.primary }} />
-              )}
+              <ApiOutlined style={{ fontSize: 28, color: themeVars.primary }} />
             </div>
 
             <div style={{ fontSize: 17, fontWeight: 600, color: themeVars.text, marginBottom: 8 }}>
-              {type === 'disabled' ? 'AI 功能未启用' : `${providerName} 尚未配置`}
+              AI 对话尚未配置
             </div>
 
             <div style={{ fontSize: 13, color: themeVars.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
-              {type === 'disabled'
-                ? '请先在应用设置中启用 AI 功能并配置 API Key'
-                : selectedProvider === 'custom'
-                  ? '自定义提供商需要配置 API Key、API 地址和模型名称'
-                  : `使用 ${providerName} 需要先配置 API Key`
-              }
+              请先在应用设置中配置 API Key、API 地址和模型名称
             </div>
-
-            {type === 'unconfigured' && docUrl && (
-              <div style={{
-                padding: '8px 12px',
-                borderRadius: 8,
-                background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-                marginBottom: 20,
-                fontSize: 12,
-                color: themeVars.textTertiary,
-                wordBreak: 'break-all'
-              }}>
-                获取 Key：
-                <a
-                  onClick={() => window.electronAPI.openExternal(docUrl)}
-                  style={{ color: themeVars.primary, cursor: 'pointer', marginLeft: 4 }}
-                >
-                  {docUrl}
-                </a>
-              </div>
-            )}
 
             <Button
               type="primary"
@@ -1206,7 +1112,7 @@ const ChatView = (props: ChatViewProps) => {
               onClick={handleGoToSettings}
               style={{ borderRadius: 8, height: 36, paddingInline: 24 }}
             >
-              {type === 'disabled' ? '前往设置' : '前往配置'}
+              前往配置
             </Button>
           </div>
         </div>
@@ -1391,14 +1297,9 @@ const ChatView = (props: ChatViewProps) => {
     </div>
   )
 
-  // AI 功能未启用
-  if (!aiEnabled) {
-    return renderGuidancePage('disabled')
-  }
-
-  // 当前提供商未配置
+  // AI 配置未完成
   if (!providerReady) {
-    return renderGuidancePage('unconfigured')
+    return renderGuidancePage()
   }
 
   // ==================== 正常聊天界面 ====================
@@ -1449,16 +1350,6 @@ const ChatView = (props: ChatViewProps) => {
             label: value.name,
             value: key
           }))}
-        />
-
-        {/* 提供商选择 */}
-        <Select
-          value={selectedProvider}
-          onChange={setSelectedProvider}
-          style={{ width: isCompact ? 90 : 110 }}
-          size="small"
-          variant="borderless"
-          options={PROVIDER_OPTIONS}
         />
 
         {/* 模型名称（紧凑模式隐藏） */}
@@ -1561,7 +1452,8 @@ const ChatView = (props: ChatViewProps) => {
           background: themeVars.bgContainer,
           transition: 'border-color 0.2s, box-shadow 0.2s',
           boxShadow: inputFocused ? `0 0 0 2px ${themeVars.primaryShadow}` : 'none',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          minHeight: 100
         }}>
           <MentionInput
             ref={mentionInputRef}
@@ -1615,11 +1507,17 @@ const ChatView = (props: ChatViewProps) => {
             <Button
               type="primary"
               icon={<SendOutlined />}
-              onClick={handleSend}
-              loading={isLoading}
+              onClick={isLoading ? undefined : handleSend}
               disabled={textLength === 0}
               size="small"
-              style={{ borderRadius: 8, height: 30, paddingInline: isCompact ? 10 : 14, fontSize: 13 }}
+              style={{
+                borderRadius: 8,
+                height: 30,
+                paddingInline: isCompact ? 10 : 14,
+                fontSize: 13,
+                opacity: isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer'
+              }}
             >
               {!isCompact && '发送'}
             </Button>

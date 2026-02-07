@@ -7,17 +7,12 @@ import {
   Typography,
   Space,
   Divider,
-  Tag,
   message,
   Segmented,
-  Select,
   Modal,
 } from "antd";
 import {
-  SaveOutlined,
   BulbOutlined,
-  RobotOutlined,
-  LinkOutlined,
   SunOutlined,
   MoonOutlined,
   LaptopOutlined,
@@ -33,11 +28,9 @@ import ConfigFileEditor from "./ConfigFileEditor";
 import ConfigEditor, { ConfigEditorRef } from "./ConfigEditor";
 import RecordControl, { RecordControlRef } from "./RecordControl";
 import { getElectronModalConfig } from "./ElectronModal";
+import AIConfigTabs from "./AIConfigTabs";
 
-const { Text, Link } = Typography;
-
-// AI 提供商类型
-type ProviderType = "groq" | "deepseek" | "gemini" | "custom";
+const { Text } = Typography;
 
 interface SettingsViewProps {
   darkMode: boolean;
@@ -57,9 +50,18 @@ function SettingsView({
   const [settings, setSettings] = useState<AppSettings>({
     themeMode: "system",
     autoStart: false,
-    ai: {
+    // AI 对话配置（简化版，只需三个字段）
+    aiChat: {
+      apiKey: "",
+      apiBaseUrl: "",
+      model: "",
+    },
+    // AI 总结配置（有 enabled 和自动格式化）
+    aiSummary: {
       enabled: false,
       provider: "groq",
+      autoFormatPrompt: true,
+      formatTimeout: 15000,
       providers: {
         groq: {
           apiKey: "",
@@ -83,10 +85,7 @@ function SettingsView({
         },
       },
     },
-  });
-  const [apiKeySaving, setApiKeySaving] = useState(false);
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
-  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
+  })
   const [configEditorVisible, setConfigEditorVisible] = useState(false);
   const [configPath, setConfigPath] = useState("");
 
@@ -128,76 +127,6 @@ function SettingsView({
     }
   };
 
-  // AI 提供商配置
-  const providerConfigs: Record<
-    ProviderType,
-    { name: string; getKeyUrl: string; description: string }
-  > = {
-    groq: {
-      name: "Groq (免费)",
-      getKeyUrl: "https://console.groq.com/keys",
-      description: "完全免费，速度超快",
-    },
-    deepseek: {
-      name: "DeepSeek",
-      getKeyUrl: "https://platform.deepseek.com/api_keys",
-      description: "有限免费额度",
-    },
-    gemini: {
-      name: "Google Gemini (免费)",
-      getKeyUrl: "https://aistudio.google.com/app/apikey",
-      description: "慷慨的免费额度",
-    },
-    custom: {
-      name: "自定义",
-      getKeyUrl: "",
-      description: "完全自定义配置，支持任意 API 服务",
-    },
-  };
-
-  // 获取当前提供商配置（类型安全）
-  const getCurrentProviderInfo = () => {
-    const provider = settings.ai.provider as ProviderType;
-    return providerConfigs[provider] || providerConfigs.groq;
-  };
-
-  // 获取当前提供商的配置（带默认值保护）
-  const getCurrentProviderConfig = () => {
-    const defaultConfig = {
-      apiKey: "",
-      apiBaseUrl: "",
-      model: "",
-    };
-
-    if (!settings.ai.providers) {
-      return defaultConfig;
-    }
-
-    return settings.ai.providers[settings.ai.provider] || defaultConfig;
-  };
-
-  // 遮罩 API Key（显示前4位和后4位）
-  const maskApiKey = (key: string): string => {
-    if (!key || key.length <= 8) return key;
-    return `${key.substring(0, 4)}${"*".repeat(Math.min(key.length - 8, 16))}${key.substring(key.length - 4)}`;
-  };
-
-  // 切换 AI 提供商
-  const handleProviderChange = (
-    provider: "deepseek" | "groq" | "gemini" | "custom",
-  ) => {
-    const newSettings = {
-      ...settings,
-      ai: {
-        ...settings.ai,
-        provider,
-      },
-    };
-    setSettings(newSettings);
-    saveSettingsImmediately(newSettings);
-    setIsEditingApiKey(false);
-  };
-
   useEffect(() => {
     loadSettings();
   }, []);
@@ -205,71 +134,6 @@ function SettingsView({
   const loadSettings = async () => {
     try {
       const loadedSettings = await window.electronAPI.getAppSettings();
-
-      // 确保 providers 结构完整
-      if (!loadedSettings.ai.providers) {
-        loadedSettings.ai.providers = {
-          groq: {
-            apiKey: "",
-            apiBaseUrl: "https://api.groq.com/openai/v1",
-            model: "llama-3.3-70b-versatile",
-          },
-          deepseek: {
-            apiKey: "",
-            apiBaseUrl: "https://api.deepseek.com/v1",
-            model: "deepseek-chat",
-          },
-          gemini: {
-            apiKey: "",
-            apiBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-            model: "gemini-2.0-flash-exp",
-          },
-          custom: {
-            apiKey: "",
-            apiBaseUrl: "",
-            model: "",
-          },
-        };
-      }
-
-      // 确保每个 provider 都存在
-      const providers: ProviderType[] = [
-        "groq",
-        "deepseek",
-        "gemini",
-        "custom",
-      ];
-      providers.forEach((provider) => {
-        if (!loadedSettings.ai.providers[provider]) {
-          const defaults: Record<
-            ProviderType,
-            { apiKey: string; apiBaseUrl: string; model: string }
-          > = {
-            groq: {
-              apiKey: "",
-              apiBaseUrl: "https://api.groq.com/openai/v1",
-              model: "llama-3.3-70b-versatile",
-            },
-            deepseek: {
-              apiKey: "",
-              apiBaseUrl: "https://api.deepseek.com/v1",
-              model: "deepseek-chat",
-            },
-            gemini: {
-              apiKey: "",
-              apiBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-              model: "gemini-2.0-flash-exp",
-            },
-            custom: {
-              apiKey: "",
-              apiBaseUrl: "",
-              model: "",
-            },
-          };
-          loadedSettings.ai.providers[provider] = defaults[provider];
-        }
-      });
-
       setSettings(loadedSettings);
     } catch (error) {
       console.error("加载设置失败:", error);
@@ -284,6 +148,28 @@ function SettingsView({
       console.error("保存设置失败:", error);
       message.error("保存设置失败");
     }
+  };
+
+  // 更新 AI 对话配置
+  const handleAIChatChange = (newAIChatSettings: typeof settings.aiChat) => {
+    const newSettings = {
+      ...settings,
+      aiChat: newAIChatSettings,
+    };
+    setSettings(newSettings);
+    saveSettingsImmediately(newSettings);
+  };
+
+  // 更新 AI 总结配置
+  const handleAISummaryChange = (
+    newAISummarySettings: typeof settings.aiSummary,
+  ) => {
+    const newSettings = {
+      ...settings,
+      aiSummary: newAISummarySettings,
+    };
+    setSettings(newSettings);
+    saveSettingsImmediately(newSettings);
   };
 
   // 卸载应用
@@ -318,63 +204,6 @@ function SettingsView({
       },
       ...getElectronModalConfig(),
     });
-  };
-
-  // 保存 API Key
-  const handleSaveApiKey = async () => {
-    setApiKeySaving(true);
-    try {
-      const result = await window.electronAPI.saveAppSettings(settings);
-      if (result.success) {
-        message.success("API Key 保存成功");
-      } else {
-        console.error("保存 API Key 失败:", result.error);
-        message.error("保存 API Key 失败");
-      }
-    } catch (error) {
-      console.error("保存 API Key 失败:", error);
-      message.error("保存 API Key 失败");
-    } finally {
-      setApiKeySaving(false);
-    }
-  };
-
-  // 更新当前提供商的配置
-  const updateCurrentProviderConfig = (
-    key: "apiKey" | "apiBaseUrl" | "model",
-    value: string,
-  ) => {
-    const newSettings = {
-      ...settings,
-      ai: {
-        ...settings.ai,
-        providers: {
-          ...settings.ai.providers,
-          [settings.ai.provider]: {
-            ...settings.ai.providers[settings.ai.provider],
-            [key]: value,
-          },
-        },
-      },
-    };
-    setSettings(newSettings);
-
-    // API Key 不即时保存，其他设置即时保存
-    if (key !== "apiKey") {
-      saveSettingsImmediately(newSettings);
-    }
-  };
-
-  const updateAISetting = (key: "enabled" | "autoFormatPrompt", value: boolean) => {
-    const newSettings = {
-      ...settings,
-      ai: {
-        ...settings.ai,
-        [key]: value,
-      },
-    };
-    setSettings(newSettings);
-    saveSettingsImmediately(newSettings);
   };
 
   return (
@@ -621,283 +450,14 @@ function SettingsView({
             <RecordControl ref={recordControlRef} />
           </Card>
 
-          {/* 卡片 4: AI 总结设置 */}
-          <Card
-            id="ai-settings"
-            title={
-              <Space>
-                <RobotOutlined style={{ color: themeVars.primary }} />
-                <span>AI 总结设置</span>
-                <Tag color={settings.ai.enabled ? "success" : "default"}>
-                  {settings.ai.enabled ? "已启用" : "未启用"}
-                </Tag>
-              </Space>
-            }
-            style={{
-              backgroundColor: themeVars.bgContainer,
-              borderColor: themeVars.border,
-            }}
-          >
-            <Space vertical size="large" style={{ width: "100%" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text style={{ color: themeVars.text }}>启用 AI 总结</Text>
-                  <br />
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: "12px", color: themeVars.textSecondary }}
-                  >
-                    使用 AI 自动生成会话总结
-                  </Text>
-                </div>
-                <Switch
-                  checked={settings.ai.enabled}
-                  onChange={(checked) => updateAISetting("enabled", checked)}
-                />
-              </div>
-
-              <Divider style={{ margin: 0 }} />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text style={{ color: themeVars.text }}>
-                    AI 自动格式化 Prompt
-                  </Text>
-                  <br />
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: "12px", color: themeVars.textSecondary }}
-                  >
-                    查看 Prompt 详情时，自动转换为结构化 Markdown
-                  </Text>
-                </div>
-                <Switch
-                  checked={settings.ai.autoFormatPrompt ?? false}
-                  onChange={(checked) =>
-                    updateAISetting("autoFormatPrompt", checked)
-                  }
-                  disabled={!settings.ai.enabled}
-                />
-              </div>
-
-              <Divider style={{ margin: 0 }} />
-
-              <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>
-                  AI 提供商
-                </Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: "12px",
-                    color: themeVars.textSecondary,
-                    marginBottom: "8px",
-                    display: "block",
-                  }}
-                >
-                  {getCurrentProviderInfo().description}
-                </Text>
-                <Select
-                  value={settings.ai.provider}
-                  onChange={handleProviderChange}
-                  style={{ width: "100%" }}
-                  options={[
-                    {
-                      label: (
-                        <div>
-                          <div style={{ fontWeight: 500 }}>Groq (推荐)</div>
-                          <div
-                            style={{ fontSize: 12, color: themeVars.success }}
-                          >
-                            ✓ 完全免费 · 速度超快
-                          </div>
-                        </div>
-                      ),
-                      value: "groq",
-                    },
-                    {
-                      label: (
-                        <div>
-                          <div style={{ fontWeight: 500 }}>Google Gemini</div>
-                          <div
-                            style={{ fontSize: 12, color: themeVars.success }}
-                          >
-                            ✓ 慷慨免费额度
-                          </div>
-                        </div>
-                      ),
-                      value: "gemini",
-                    },
-                    {
-                      label: (
-                        <div>
-                          <div style={{ fontWeight: 500 }}>DeepSeek</div>
-                          <div
-                            style={{ fontSize: 12, color: themeVars.warning }}
-                          >
-                            ⚠ 有限免费额度
-                          </div>
-                        </div>
-                      ),
-                      value: "deepseek",
-                    },
-                    {
-                      label: (
-                        <div>
-                          <div style={{ fontWeight: 500 }}>自定义</div>
-                          <div style={{ fontSize: 12, color: themeVars.info }}>
-                            ⚙️ 任意 API 服务
-                          </div>
-                        </div>
-                      ),
-                      value: "custom",
-                    },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <Text style={{ color: themeVars.text, fontWeight: 500 }}>
-                    API Key
-                  </Text>
-                  {getCurrentProviderInfo().getKeyUrl && (
-                    <Link
-                      href={getCurrentProviderInfo().getKeyUrl}
-                      target="_blank"
-                      style={{ fontSize: "12px" }}
-                    >
-                      获取 API Key <LinkOutlined />
-                    </Link>
-                  )}
-                </div>
-                <Input.Password
-                  value={getCurrentProviderConfig().apiKey}
-                  onChange={(e) => {
-                    updateCurrentProviderConfig("apiKey", e.target.value);
-                    setIsEditingApiKey(true);
-                  }}
-                  placeholder={`请输入 ${getCurrentProviderInfo().name} API Key`}
-                  visibilityToggle={{
-                    visible: apiKeyVisible,
-                    onVisibleChange: setApiKeyVisible,
-                  }}
-                  onPressEnter={handleSaveApiKey}
-                  onFocus={() => setIsEditingApiKey(true)}
-                  style={{ marginBottom: "8px" }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: "12px", color: themeVars.textSecondary }}
-                  >
-                    {getCurrentProviderConfig().apiKey && !isEditingApiKey
-                      ? `已设置: ${maskApiKey(getCurrentProviderConfig().apiKey)}`
-                      : "你的 API Key 将加密存储在本地"}
-                  </Text>
-                  <Button
-                    type="primary"
-                    icon={<SaveOutlined />}
-                    onClick={() => {
-                      handleSaveApiKey();
-                      setIsEditingApiKey(false);
-                    }}
-                    loading={apiKeySaving}
-                    size="small"
-                    disabled={
-                      !isEditingApiKey && !!getCurrentProviderConfig().apiKey
-                    }
-                  >
-                    保存 API Key
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Text style={{ color: themeVars.text }}>API 地址</Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: "12px",
-                    color: themeVars.textSecondary,
-                    marginBottom: "8px",
-                    display: "block",
-                  }}
-                >
-                  {settings.ai.provider === "custom"
-                    ? "填写完整的 API 地址（支持任意服务、代理、中转）"
-                    : "高级选项，通常无需修改"}
-                </Text>
-                <Input
-                  value={getCurrentProviderConfig().apiBaseUrl}
-                  onChange={(e) =>
-                    updateCurrentProviderConfig("apiBaseUrl", e.target.value)
-                  }
-                  placeholder={
-                    settings.ai.provider === "custom"
-                      ? "例如: https://your-api.com/v1"
-                      : getCurrentProviderConfig().apiBaseUrl
-                  }
-                />
-              </div>
-
-              <div>
-                <Text style={{ color: themeVars.text }}>模型名称</Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: "12px",
-                    color: themeVars.textSecondary,
-                    marginBottom: "8px",
-                    display: "block",
-                  }}
-                >
-                  {settings.ai.provider === "custom"
-                    ? "填写模型 ID（根据你的 API 服务要求）"
-                    : "默认已选择最优模型，通常无需修改"}
-                </Text>
-                <Input
-                  value={getCurrentProviderConfig().model}
-                  onChange={(e) =>
-                    updateCurrentProviderConfig("model", e.target.value)
-                  }
-                  placeholder={
-                    settings.ai.provider === "custom"
-                      ? "例如: gpt-4, claude-3, llama-3 等"
-                      : getCurrentProviderConfig().model
-                  }
-                />
-              </div>
-            </Space>
-          </Card>
+          {/* 卡片 4: AI 功能配置（Tab 切换：对话 / 总结） */}
+          <AIConfigTabs
+            aiChat={settings.aiChat}
+            aiSummary={settings.aiSummary}
+            darkMode={darkMode}
+            onAIChatChange={handleAIChatChange}
+            onAISummaryChange={handleAISummaryChange}
+          />
         </div>
 
         {/* 卸载应用 - 放在最底部 */}
