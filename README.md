@@ -26,16 +26,23 @@ Claude Code 配置管理和对话记录监控工具。
 
 ## 开发
 
+**重要：本项目强制使用 pnpm 作为包管理器**
+
 ```bash
+# 安装 pnpm (如果未安装)
+npm install -g pnpm
+
 # 安装依赖
-npm install
+pnpm install
 
 # 开发模式
-npm run dev
+pnpm run dev
 
 # 构建应用
-npm run build
+pnpm run build
 ```
+
+> ⚠️ **注意**：如果使用 npm 或 yarn 安装，会自动报错并阻止安装。
 
 ## 安装
 

@@ -3,7 +3,14 @@
   "version": "1.6.0",
   "description": "Claude Code 配置管理和对话记录监控工具",
   "main": "dist-electron/main.js",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
   "scripts": {
+    "preinstall": "node scripts/check-package-manager.js",
+    "postinstall": "node scripts/post-install.js && node scripts/verify-env.js",
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "build:dev": "cross-env ELECTRON_DEV_BUILD=true vite build && electron-builder --config electron-builder.dev.yml",
@@ -58,6 +65,7 @@
     "dayjs": "^1.11.19",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.1.0",
+    "katex": "^0.16.28",
     "monaco-editor": "^0.55.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
