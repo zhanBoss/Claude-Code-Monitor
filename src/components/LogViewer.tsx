@@ -56,8 +56,16 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // Prompt 和 Copy Text 弹窗状态
   const [promptModalVisible, setPromptModalVisible] = useState(false)
   const [promptModalContent, setPromptModalContent] = useState<string>('')
+  const [promptModalImages, setPromptModalImages] = useState<string[]>([]) // 对话详情的图片
   const [copyTextModalVisible, setCopyTextModalVisible] = useState(false)
   const [copyTextModalContent, setCopyTextModalContent] = useState<Record<string, any>>({})
+
+  // 图片预览状态
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false)
+  const [imagePreviewIndex, setImagePreviewIndex] = useState(0)
+  const [imagePreviewList, setImagePreviewList] = useState<string[]>([])
+  const [previewImageCache, setPreviewImageCache] = useState<Map<string, string>>(new Map())
+
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -240,6 +248,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // 查看搜索结果详情
   const handleViewSearchResult = (record: ClaudeRecord) => {
     setPromptModalContent(record.display || '')
+    setPromptModalImages(record.images || [])
     setPromptModalVisible(true)
     setSearchVisible(false)
     setSearchKeyword('')
@@ -778,6 +787,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                               maxLines={isPromptLong ? 3 : undefined}
                               onClick={isPromptLong ? () => {
                                 setPromptModalContent(fullPrompt)
+                                setPromptModalImages(record.images || [])
                                 setPromptModalVisible(true)
                               } : undefined}
                               hasPastedContents={hasCopyText}
@@ -785,6 +795,19 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                                 // 打开 Copy Text 弹窗并滚动到对应的内容
                                 setCopyTextModalContent(record.pastedContents || {})
                                 setCopyTextModalVisible(true)
+                              }}
+                              images={record.images}
+                              onImageClick={(imageNumber) => {
+                                // 找到对应编号的图片并打开预览
+                                if (record.images && record.images.length > 0) {
+                                  // 图片编号从 1 开始，数组索引从 0 开始
+                                  const imageIndex = imageNumber - 1
+                                  if (imageIndex >= 0 && imageIndex < record.images.length) {
+                                    setImagePreviewList(record.images)
+                                    setImagePreviewIndex(imageIndex)
+                                    setImagePreviewVisible(true)
+                                  }
+                                }
                               }}
                             />
                           </div>
@@ -986,6 +1009,18 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         onClose={() => setPromptModalVisible(false)}
         content={promptModalContent}
         darkMode={darkMode}
+        images={promptModalImages}
+        onImageClick={(imageNumber) => {
+          // 在详情弹窗中点击图片标签
+          if (promptModalImages && promptModalImages.length > 0) {
+            const imageIndex = imageNumber - 1
+            if (imageIndex >= 0 && imageIndex < promptModalImages.length) {
+              setImagePreviewList(promptModalImages)
+              setImagePreviewIndex(imageIndex)
+              setImagePreviewVisible(true)
+            }
+          }
+        }}
       />
 
       {/* Copy Text 详情弹窗 */}
@@ -995,6 +1030,41 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         content={copyTextModalContent}
         darkMode={darkMode}
       />
+
+      {/* 图片预览弹窗 */}
+      {imagePreviewVisible && imagePreviewList.length > 0 && (
+        <Image.PreviewGroup
+          preview={{
+            visible: imagePreviewVisible,
+            current: imagePreviewIndex,
+            onVisibleChange: (visible) => {
+              setImagePreviewVisible(visible)
+            },
+            ...getCopyablePreviewConfig()
+          }}
+          items={imagePreviewList.map(imagePath => ({
+            src: previewImageCache.get(imagePath) || imagePath
+          }))}
+        >
+          {imagePreviewList.map((imagePath, index) => (
+            <CopyableImage
+              key={index}
+              imagePath={imagePath}
+              index={index}
+              darkMode={darkMode}
+              imageCache={previewImageCache}
+              onCacheUpdate={(path, data) => {
+                setPreviewImageCache(prev => {
+                  const newCache = new Map(prev)
+                  newCache.set(path, data)
+                  return newCache
+                })
+              }}
+              style={{ display: 'none' }}
+            />
+          ))}
+        </Image.PreviewGroup>
+      )}
 
       {/* 文件查看器 */}
       <FileViewer

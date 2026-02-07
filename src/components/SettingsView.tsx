@@ -21,6 +21,7 @@ import {
   ExclamationCircleOutlined,
   CodeOutlined,
   PlayCircleOutlined,
+  RobotOutlined,
 } from "@ant-design/icons";
 import { AppSettings } from "../types";
 import { getThemeVars } from "../theme";
@@ -83,16 +84,114 @@ function SettingsView({
         },
       },
     },
-  })
+  });
   const [configEditorVisible, setConfigEditorVisible] = useState(false);
   const [configPath, setConfigPath] = useState("");
+  const [activeSection, setActiveSection] = useState("general");
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
 
   // ConfigEditor 的 ref，用于刷新数据
   const configEditorRef = useRef<ConfigEditorRef>(null);
   // RecordControl 的 ref，用于刷新数据
   const recordControlRef = useRef<RecordControlRef>(null);
+  // 内容区域的 ref，用于滚动监听
+  const contentRef = useRef<HTMLDivElement>(null);
+  // 标记是否为点击导航触发的滚动（用于区分点击导航和自然滚动）
+  const isClickScrolling = useRef(false);
 
   const themeVars = getThemeVars(darkMode);
+
+  // 导航项配置
+  const navItems = [
+    { id: "general", label: "通用", icon: <BulbOutlined /> },
+    { id: "claude-config", label: "Claude Code", icon: <CodeOutlined /> },
+    { id: "record-control", label: "对话记录", icon: <PlayCircleOutlined /> },
+    { id: "ai-config", label: "AI 功能", icon: <RobotOutlined /> },
+  ];
+
+  // 滚动监听，更新激活的导航项
+  useEffect(() => {
+    const handleScroll = () => {
+      // 如果是点击导航触发的滚动，忽略本次监听
+      if (isClickScrolling.current) {
+        return;
+      }
+
+      if (!contentRef.current) return;
+
+      const scrollTop = contentRef.current.scrollTop;
+      const sections = navItems
+        .map((item) => {
+          const element = document.getElementById(item.id);
+          if (!element) return null;
+
+          const rect = element.getBoundingClientRect();
+          const containerRect = contentRef.current!.getBoundingClientRect();
+          const relativeTop = rect.top - containerRect.top + scrollTop;
+
+          return {
+            id: item.id,
+            top: relativeTop,
+            bottom: relativeTop + rect.height,
+          };
+        })
+        .filter(Boolean);
+
+      // 找到当前滚动位置对应的 section（考虑 150px 的偏移量）
+      const currentScrollPos = scrollTop + 150;
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = sections[i];
+        if (section && currentScrollPos >= section.top) {
+          setActiveSection(section.id);
+          break;
+        }
+      }
+    };
+
+    const contentElement = contentRef.current;
+    if (contentElement) {
+      contentElement.addEventListener("scroll", handleScroll);
+      // 初始化时执行一次
+      setTimeout(handleScroll, 100);
+    }
+
+    return () => {
+      if (contentElement) {
+        contentElement.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, []);
+
+  // 点击导航项，滚动到对应区域
+  const handleNavClick = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element && contentRef.current) {
+      // 标记为点击导航触发的滚动，禁用滚动监听
+      isClickScrolling.current = true;
+
+      // 立即更新激活状态（一步到位）
+      setActiveSection(sectionId);
+
+      const containerRect = contentRef.current.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const scrollTop = contentRef.current.scrollTop;
+      const offset = 100; // 顶部偏移量
+      const targetScrollTop =
+        scrollTop + elementRect.top - containerRect.top - offset;
+
+      contentRef.current.scrollTo({
+        top: targetScrollTop,
+        behavior: "smooth",
+      });
+
+      // 滚动结束后，重新启用滚动监听
+      // 使用 setTimeout 来等待 smooth 滚动完成（约 500-800ms）
+      setTimeout(() => {
+        isClickScrolling.current = false;
+      }, 800);
+    }
+  };
 
   // 处理滚动到指定区域
   useEffect(() => {
@@ -100,6 +199,12 @@ function SettingsView({
       const timer = setTimeout(() => {
         const element = document.getElementById(scrollToSection);
         if (element) {
+          // 标记为点击导航触发的滚动，禁用滚动监听
+          isClickScrolling.current = true;
+
+          // 立即更新激活状态
+          setActiveSection(scrollToSection);
+
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           // 添加高亮效果
           element.style.transition = "box-shadow 0.3s ease";
@@ -107,6 +212,11 @@ function SettingsView({
           setTimeout(() => {
             element.style.boxShadow = "";
           }, 2000);
+
+          // 滚动结束后，重新启用滚动监听
+          setTimeout(() => {
+            isClickScrolling.current = false;
+          }, 800);
         }
         onScrollComplete?.();
       }, 300);
@@ -235,12 +345,101 @@ function SettingsView({
 
       {/* 内容区域 */}
       <div
+        ref={contentRef}
         style={{
           flex: 1,
           overflow: "auto",
           padding: "32px",
+          position: "relative",
         }}
       >
+        {/* 右上角浮动导航栏 - 高透明度设计 */}
+        <div
+          style={{
+            position: "fixed",
+            top: 80,
+            right: 32,
+            zIndex: 100,
+            backgroundColor: darkMode
+              ? "rgba(20, 20, 20, 0.3)"
+              : "rgba(255, 255, 255, 0.3)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            borderRadius: 12,
+            padding: "8px",
+            border: darkMode
+              ? "1px solid rgba(255, 255, 255, 0.1)"
+              : "1px solid rgba(0, 0, 0, 0.08)",
+            boxShadow: darkMode
+              ? "0 4px 16px rgba(0, 0, 0, 0.3)"
+              : "0 4px 16px rgba(0, 0, 0, 0.08)",
+            transition: "all 0.3s ease",
+            minWidth: 140,
+          }}
+        >
+          {navItems.map((item, index) => {
+            const isActive = activeSection === item.id;
+            const isHovered = hoveredSection === item.id;
+            const shouldHighlight = isHovered || isActive;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  marginBottom: index === navItems.length - 1 ? 0 : 4,
+                  backgroundColor: shouldHighlight
+                    ? darkMode
+                      ? "rgba(255, 255, 255, 0.15)"
+                      : "rgba(0, 0, 0, 0.08)"
+                    : "transparent",
+                  color: shouldHighlight
+                    ? themeVars.primary
+                    : darkMode
+                      ? "rgba(255, 255, 255, 0.5)"
+                      : "rgba(0, 0, 0, 0.45)",
+                  transition: "all 0.2s ease",
+                  fontSize: 13,
+                  fontWeight: shouldHighlight ? 600 : 400,
+                  transform: shouldHighlight
+                    ? "translateX(-2px)"
+                    : "translateX(0)",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    opacity: shouldHighlight ? 1 : 0.6,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
+                  {item.icon}
+                </span>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {shouldHighlight && (
+                  <span
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      backgroundColor: themeVars.primary,
+                      boxShadow: `0 0 6px ${themeVars.primary}`,
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
         <div
           style={{
             display: "grid",
@@ -255,9 +454,14 @@ function SettingsView({
         >
           {/* 卡片 1: 通用设置 */}
           <Card
+            id="general"
+            onMouseEnter={() => setHoveredSection("general")}
+            onMouseLeave={() => setHoveredSection(null)}
             title={
               <Space size={10}>
-                <BulbOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
+                <BulbOutlined
+                  style={{ color: themeVars.primary, fontSize: 18 }}
+                />
                 <span style={{ fontSize: 15, fontWeight: 600 }}>通用设置</span>
               </Space>
             }
@@ -282,7 +486,13 @@ function SettingsView({
           >
             <Space direction="vertical" size={20} style={{ width: "100%" }}>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14,
+                  }}
+                >
                   外观主题
                 </Text>
                 <br />
@@ -354,11 +564,23 @@ function SettingsView({
                 }}
               >
                 <div>
-                  <Text style={{ color: themeVars.text, fontSize: 14, fontWeight: 500 }}>开机自启动</Text>
+                  <Text
+                    style={{
+                      color: themeVars.text,
+                      fontSize: 14,
+                      fontWeight: 500,
+                    }}
+                  >
+                    开机自启动
+                  </Text>
                   <br />
                   <Text
                     type="secondary"
-                    style={{ fontSize: 13, color: themeVars.textSecondary, lineHeight: 1.5 }}
+                    style={{
+                      fontSize: 13,
+                      color: themeVars.textSecondary,
+                      lineHeight: 1.5,
+                    }}
                   >
                     系统启动时自动运行应用
                   </Text>
@@ -376,7 +598,13 @@ function SettingsView({
               <Divider style={{ margin: "4px 0" }} />
 
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14,
+                  }}
+                >
                   Claude Code 目录
                 </Text>
                 <br />
@@ -407,7 +635,13 @@ function SettingsView({
               <Divider style={{ margin: "4px 0" }} />
 
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14,
+                  }}
+                >
                   数据存储
                 </Text>
                 <br />
@@ -437,10 +671,17 @@ function SettingsView({
 
           {/* 卡片 2: Claude Code 配置 */}
           <Card
+            id="claude-config"
+            onMouseEnter={() => setHoveredSection("claude-config")}
+            onMouseLeave={() => setHoveredSection(null)}
             title={
               <Space size={10}>
-                <CodeOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Claude Code 配置</span>
+                <CodeOutlined
+                  style={{ color: themeVars.primary, fontSize: 18 }}
+                />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>
+                  Claude Code 配置
+                </span>
               </Space>
             }
             style={{
@@ -468,10 +709,16 @@ function SettingsView({
           {/* 卡片 3: 对话记录管理 */}
           <Card
             id="record-control"
+            onMouseEnter={() => setHoveredSection("record-control")}
+            onMouseLeave={() => setHoveredSection(null)}
             title={
               <Space size={10}>
-                <PlayCircleOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>对话记录管理</span>
+                <PlayCircleOutlined
+                  style={{ color: themeVars.primary, fontSize: 18 }}
+                />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>
+                  对话记录管理
+                </span>
               </Space>
             }
             style={{
@@ -497,13 +744,19 @@ function SettingsView({
           </Card>
 
           {/* 卡片 4: AI 功能配置（Tab 切换：对话 / 总结） */}
-          <AIConfigTabs
-            aiChat={settings.aiChat}
-            aiSummary={settings.aiSummary}
-            darkMode={darkMode}
-            onAIChatChange={handleAIChatChange}
-            onAISummaryChange={handleAISummaryChange}
-          />
+          <div
+            id="ai-config"
+            onMouseEnter={() => setHoveredSection("ai-config")}
+            onMouseLeave={() => setHoveredSection(null)}
+          >
+            <AIConfigTabs
+              aiChat={settings.aiChat}
+              aiSummary={settings.aiSummary}
+              darkMode={darkMode}
+              onAIChatChange={handleAIChatChange}
+              onAISummaryChange={handleAISummaryChange}
+            />
+          </div>
         </div>
 
         {/* 卸载应用 - 放在最底部 */}

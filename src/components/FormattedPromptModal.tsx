@@ -6,6 +6,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import ElectronModal from "./ElectronModal";
 import { getThemeVars } from "../theme";
+import SmartContent from "./SmartContent";
 import crypto from "crypto-js";
 
 interface FormattedPromptModalProps {
@@ -14,6 +15,8 @@ interface FormattedPromptModalProps {
   content: string;
   darkMode: boolean;
   title?: string;
+  images?: string[]; // 图片路径数组
+  onImageClick?: (imageNumber: number) => void; // 图片点击回调
 }
 
 /**
@@ -30,6 +33,8 @@ function FormattedPromptModal({
   content,
   darkMode,
   title = "Prompt 详情",
+  images,
+  onImageClick,
 }: FormattedPromptModalProps) {
   const themeVars = getThemeVars(darkMode);
 
@@ -244,23 +249,21 @@ function FormattedPromptModal({
       );
     }
 
-    // 格式化失败或未格式化，显示原始内容
+    // 格式化失败或未格式化，显示原始内容（使用 SmartContent 支持图片点击）
     return (
       <div
         style={{
           padding: "16px",
           background: themeVars.bgElevated,
           borderRadius: 8,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: 14,
-          lineHeight: 1.6,
-          color: themeVars.text,
-          fontFamily:
-            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
         }}
       >
-        {content}
+        <SmartContent
+          content={content}
+          darkMode={darkMode}
+          images={images}
+          onImageClick={onImageClick}
+        />
       </div>
     );
   };

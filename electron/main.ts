@@ -26,6 +26,141 @@ let lastFileSize = 0;
 
 // 自动清理缓存定时器
 let autoCleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+// ========== 图片处理函数（独立提取，供多处调用） ==========
+
+/**
+ * 从 Claude Code 2.0.55+ projects 目录提取图片
+ * @param sessionId - 会话 ID
+ * @param project - 项目路径
+ * @param savePath - 应用保存路径
+ * @param displayText - 记录的 display 文本，用于识别图片编号
+ * @returns 图片路径数组
+ */
+async function extractImagesFromProjects(
+  sessionId: string,
+  project: string,
+  savePath: string,
+  displayText: string
+): Promise<string[]> {
+  const images: string[] = [];
+
+  try {
+    // 从 display 文本中提取图片编号
+    const imageMatches = displayText.match(/\[Image #(\d+)\]/g);
+    if (!imageMatches || imageMatches.length === 0) {
+      // 如果没有图片标记，直接返回
+      return images;
+    }
+
+    // 提取所有图片编号
+    const imageNumbers = imageMatches
+      .map((match) => {
+        const num = match.match(/\d+/);
+        return num ? parseInt(num[0]) : null;
+      })
+      .filter((n) => n !== null) as number[];
+
+    if (imageNumbers.length === 0) {
+      return images;
+    }
+
+    console.log(`[Image Extract] 记录中需要 ${imageNumbers.length} 张图片:`, imageNumbers);
+
+    // 构建 project 路径（将绝对路径转换为文件夹名）
+    const projectFolderName = project.replace(/\//g, "-");
+    const projectSessionFile = path.join(
+      CLAUDE_DIR,
+      "projects",
+      projectFolderName,
+      `${sessionId}.jsonl`
+    );
+
+    if (!fs.existsSync(projectSessionFile)) {
+      console.log(`[Image Extract] Session 文件不存在，跳过`);
+      return images;
+    }
+
+    const lines = fs
+      .readFileSync(projectSessionFile, "utf-8")
+      .split("\n")
+      .filter((line) => line.trim());
+
+    // 从 session 文件中提取所有 base64 图片
+    const base64Images: { index: number; data: string }[] = [];
+    let currentImageIndex = 1;
+
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        // 查找用户消息中的图片
+        if (
+          entry.message &&
+          Array.isArray(entry.message.content) &&
+          entry.message.role === "user"
+        ) {
+          for (const content of entry.message.content) {
+            if (
+              content.type === "image" &&
+              content.source &&
+              content.source.type === "base64" &&
+              content.source.data
+            ) {
+              base64Images.push({
+                index: currentImageIndex,
+                data: content.source.data,
+              });
+              currentImageIndex++;
+            }
+          }
+        }
+      } catch (err) {
+        // 忽略解析错误的行
+      }
+    }
+
+    console.log(`[Image Extract] Session 中共有 ${base64Images.length} 张图片`);
+
+    // 只保存当前记录需要的图片
+    const imagesDir = path.join(savePath, "images", sessionId);
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    for (const imageNum of imageNumbers) {
+      // 在 base64Images 数组中查找对应编号的图片
+      const imageData = base64Images.find((img) => img.index === imageNum);
+
+      if (imageData) {
+        const imageFileName = `${imageNum}.png`;
+        const imagePath = path.join(imagesDir, imageFileName);
+
+        // 如果图片已存在，跳过
+        if (!fs.existsSync(imagePath)) {
+          // 将 base64 数据写入文件
+          const buffer = Buffer.from(imageData.data, "base64");
+          fs.writeFileSync(imagePath, buffer);
+          console.log(`[Image Extract] 成功提取图片 #${imageNum}`);
+        }
+
+        images.push(`images/${sessionId}/${imageFileName}`);
+      } else {
+        console.warn(`[Image Extract] 找不到图片 #${imageNum}`);
+      }
+    }
+
+    if (images.length > 0) {
+      console.log(`[Image Extract] 本条记录提取了 ${images.length} 张图片`);
+    }
+  } catch (err) {
+    console.error("[Image Extract] 提取图片失败:", err);
+  }
+
+  return images;
+}
+
+// ==========================================================
+
 let autoCleanupTickTimer: ReturnType<typeof setInterval> | null = null;
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
@@ -547,27 +682,51 @@ async function processRecord(record: any, savePath: string) {
       }
     }
 
-    // 处理图片：根据时间戳匹配当前 prompt 使用的图片
+    // 处理图片：兼容多个版本的 Claude Code
     const images: string[] = [];
 
     if (record.sessionId) {
-      const imageCacheDir = path.join(
+      // 方案1: Claude Code 2.0.55+ 从 projects/{project}/{sessionId}.jsonl 读取 base64 图片
+      // 方案2: Claude Code 2.0+ 使用 image-cache/{sessionId} 目录
+      const imageCacheDirNew = path.join(
         CLAUDE_DIR,
         "image-cache",
         record.sessionId,
       );
 
-      // 等待图片目录创建（最多等待2秒）
-      let waitCount = 0;
-      while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        waitCount++;
-      }
+      // 方案3: 旧版本可能使用其他位置（兼容扩展）
+      const imageCacheDirOld = path.join(CLAUDE_DIR, "images", record.sessionId);
 
-      try {
-        if (fs.existsSync(imageCacheDir)) {
+      // 尝试多个可能的图片目录
+      const possibleDirs = [imageCacheDirNew, imageCacheDirOld];
+
+      // 优先方案：Claude Code 2.0.55+ 从 projects 目录提取 base64 图片
+      const extractedImages = await extractImagesFromProjects(
+        record.sessionId,
+        record.project,
+        savePath,
+        record.display // 传入 display 文本用于识别图片编号
+      );
+      images.push(...extractedImages);
+
+      // 如果方案1没有成功提取图片，继续尝试方案2和3（从 image-cache 目录）
+      if (images.length === 0) {
+        // 等待图片目录创建（最多等待3秒，针对某些版本延迟创建的情况）
+        let waitCount = 0;
+        while (waitCount < 30) {
+          if (possibleDirs.some(dir => fs.existsSync(dir))) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          waitCount++;
+        }
+
+        try {
+          for (const imageCacheDir of possibleDirs) {
+          if (!fs.existsSync(imageCacheDir)) continue;
+
           // 再等待一小段时间，确保图片文件写入完成
-          await new Promise((resolve) => setTimeout(resolve, 200));
+          await new Promise((resolve) => setTimeout(resolve, 300));
 
           // 读取目录下的所有图片文件
           const allImageFiles = fs
@@ -577,7 +736,8 @@ async function processRecord(record: any, savePath: string) {
                 f.endsWith(".png") ||
                 f.endsWith(".jpg") ||
                 f.endsWith(".jpeg") ||
-                f.endsWith(".gif"),
+                f.endsWith(".gif") ||
+                f.endsWith(".webp"),
             );
 
           if (allImageFiles.length > 0) {
@@ -599,18 +759,41 @@ async function processRecord(record: any, savePath: string) {
                 })
                 .filter((n: number | null) => n !== null) as number[];
 
-              const sortedImageFiles = allImageFiles.sort();
+              // 按文件名排序（自然排序: 1.png, 2.png, ... 10.png）
+              const sortedImageFiles = allImageFiles.sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)?.[0] || "0");
+                const numB = parseInt(b.match(/\d+/)?.[0] || "0");
+                return numA - numB;
+              });
+
+              console.log(`[Image Matcher] 找到 ${imageNumbers.length} 个图片标记, ${sortedImageFiles.length} 个图片文件`);
+              console.log(`[Image Matcher] 标记编号:`, imageNumbers);
+              console.log(`[Image Matcher] 文件列表:`, sortedImageFiles);
 
               for (const imageNum of imageNumbers) {
-                const imageIndex = imageNum - 1;
-                if (imageIndex >= 0 && imageIndex < sortedImageFiles.length) {
-                  const imageFile = sortedImageFiles[imageIndex];
+                // 尝试两种映射方式以兼容不同版本
+                // 方式1: [Image #1] -> 文件名 1.png（直接映射）
+                let imageFile = sortedImageFiles.find(f => {
+                  const fileNum = parseInt(f.match(/\d+/)?.[0] || "0");
+                  return fileNum === imageNum;
+                });
+
+                // 方式2: [Image #1] -> 索引 0（数组索引映射，兼容旧版本）
+                if (!imageFile) {
+                  const imageIndex = imageNum - 1;
+                  if (imageIndex >= 0 && imageIndex < sortedImageFiles.length) {
+                    imageFile = sortedImageFiles[imageIndex];
+                  }
+                }
+
+                if (imageFile) {
                   const srcPath = path.join(imageCacheDir, imageFile);
                   const destPath = path.join(imagesDir, imageFile);
 
                   try {
                     if (!fs.existsSync(destPath)) {
                       fs.copyFileSync(srcPath, destPath);
+                      console.log(`[Image Copy] 成功复制: ${imageFile}`);
                     }
                     images.push(`images/${record.sessionId}/${imageFile}`);
                   } catch (err) {
@@ -620,6 +803,7 @@ async function processRecord(record: any, savePath: string) {
               }
             } else {
               // 方案2: 没有标记时，使用时间戳匹配（前后 5 秒内的图片）
+              console.log(`[Image Matcher] 无标记，使用时间戳匹配`);
               for (const imageFile of allImageFiles) {
                 const srcPath = path.join(imageCacheDir, imageFile);
                 const stat = fs.statSync(srcPath);
@@ -633,6 +817,7 @@ async function processRecord(record: any, savePath: string) {
                   try {
                     if (!fs.existsSync(destPath)) {
                       fs.copyFileSync(srcPath, destPath);
+                      console.log(`[Image Copy] 时间戳匹配复制: ${imageFile}`);
                     }
                     images.push(`images/${record.sessionId}/${imageFile}`);
                   } catch (err) {
@@ -641,10 +826,19 @@ async function processRecord(record: any, savePath: string) {
                 }
               }
             }
+
+            // 找到图片后退出循环
+            if (images.length > 0) break;
           }
         }
       } catch (err) {
         console.error("Failed to process images:", err);
+      }
+      } // 结束 if (images.length === 0)
+
+      // 如果图片目录不存在，但 display 中有 [Image #N] 标记，记录警告
+      if (images.length === 0 && record.display.includes("[Image #")) {
+        console.warn(`[Image Warning] Session ${record.sessionId} 包含图片标记但未找到图片文件`);
       }
     }
 
@@ -849,13 +1043,30 @@ ipcMain.handle("read-session-details", async (_, sessionId: string) => {
               pastedContents = expandedContents;
             }
 
+            // 🔥 关键修复：在读取历史记录时也提取图片
+            let images = record.images || [];
+            // 如果record中没有图片数据，但display中有[Image #]标记，尝试提取
+            if (images.length === 0 && record.prompt && record.prompt.includes("[Image #")) {
+              try {
+                const extractedImages = await extractImagesFromProjects(
+                  recordSessionId,
+                  record.project,
+                  savePath,
+                  record.prompt // 传入 prompt 文本用于识别图片编号
+                );
+                images = extractedImages;
+              } catch (err) {
+                console.error("读取历史时提取图片失败:", err);
+              }
+            }
+
             records.push({
               timestamp,
               project: record.project,
               sessionId: recordSessionId,
               display: record.prompt || "",
               pastedContents,
-              images: record.images || [],
+              images,
             });
           } catch (e) {
             console.error("解析记录失败:", e);
@@ -963,13 +1174,31 @@ ipcMain.handle("read-history", async () => {
               pastedContents = expandedContents;
             }
 
+            // 🔥 关键修复：在读取历史记录时也提取图片
+            let images = record.images || [];
+            const sessionId = record.sessionId || "";
+            // 如果record中没有图片数据，但display中有[Image #]标记，尝试提取
+            if (images.length === 0 && record.prompt && record.prompt.includes("[Image #")) {
+              try {
+                const extractedImages = await extractImagesFromProjects(
+                  sessionId,
+                  record.project,
+                  savePath,
+                  record.prompt // 传入 prompt 文本用于识别图片编号
+                );
+                images = extractedImages;
+              } catch (err) {
+                console.error("读取历史时提取图片失败:", err);
+              }
+            }
+
             records.push({
               timestamp,
               project: record.project,
-              sessionId: record.sessionId || "",
+              sessionId,
               display: record.prompt || "",
               pastedContents,
-              images: record.images || [],
+              images,
             });
           } catch (e) {
             console.error(
