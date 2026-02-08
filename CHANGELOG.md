@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-02-08
+
+### Added
+- AI 助手对话支持重新生成回复功能
+  - 每条 AI 回复添加"重新生成"按钮
+  - 支持针对单条消息独立重新生成
+  - 使用原始 prompt 重新生成，不影响其他对话
+  - 流式显示在原位置替换，保持对话顺序
+
+### Improved
+- 重新生成按钮 UI 设计优化
+  - 按钮位于消息气泡右侧外部，不遮挡内容
+  - 默认隐藏，hover 消息时显示
+  - 简洁的图标按钮设计，无文字标签
+  - 平滑的淡入淡出动画效果
+  - 距离消息气泡仅 4px，视觉紧凑
+
+### Technical
+- 使用 Ant Design X Bubble 组件的 `extra` 插槽实现按钮布局
+- 添加 `regeneratingIndex` 状态管理重新生成过程
+- 流式内容在原消息位置实时更新，无需添加新消息
+
 ## [1.6.0] - 2026-02-05
 
 ### Added
