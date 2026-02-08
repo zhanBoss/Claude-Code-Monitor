@@ -21,8 +21,15 @@ interface VersionData {
 const changelog: VersionData[] = [
   {
     version: '1.7.0',
-    date: '2026-02-07',
+    date: '2026-02-08',
     changes: [
+      { type: 'feat', description: 'AI 助手对话支持重新生成回复功能' },
+      { type: 'feat', description: '每条 AI 回复添加"重新生成"按钮，支持针对单条消息独立重新生成' },
+      { type: 'feat', description: '使用原始 prompt 重新生成，不影响其他对话' },
+      { type: 'feat', description: '流式显示在原位置替换，保持对话顺序' },
+      { type: 'refactor', description: '重新生成按钮 UI 优化：位于消息气泡右侧外部，不遮挡内容' },
+      { type: 'refactor', description: '按钮默认隐藏，hover 消息时显示，简洁的图标设计' },
+      { type: 'refactor', description: '平滑的淡入淡出动画效果，距离消息气泡仅 4px' },
       { type: 'feat', description: 'AI 对话功能全面升级：支持 Markdown 渲染、打字机效果、代码块复制' },
       { type: 'feat', description: '添加 @ 引用输入框功能，支持引用历史对话内容到 AI 助手' },
       { type: 'feat', description: '支持将对话内容发送到 AI 助手，实现上下文对话' },
