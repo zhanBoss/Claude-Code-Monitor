@@ -41,6 +41,7 @@ import {
   CopyOutlined,
   CheckOutlined,
   DownloadOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import {
   ChatMessage,
@@ -452,6 +453,11 @@ const ChatView = (props: ChatViewProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [streamingMessage, setStreamingMessage] = useState("");
   const prevSystemPromptRef = useRef(systemPromptType);
+
+  // 重新生成相关状态
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(
+    null,
+  );
 
   // Prompt 选择器
   const [promptPickerVisible, setPromptPickerVisible] = useState(false);
@@ -871,8 +877,83 @@ const ChatView = (props: ChatViewProps) => {
     setStreamingMessage("");
   };
 
+  // 重新生成 AI 回复
+  const handleRegenerate = async (messageId: string) => {
+    // 找到要重新生成的消息索引
+    const messageIndex = messages.findIndex((m) => m.id === messageId);
+    if (messageIndex === -1 || messages[messageIndex].role !== "assistant") {
+      return;
+    }
+
+    // 找到对应的用户消息（前一条）
+    const userMessageIndex = messageIndex - 1;
+    if (userMessageIndex < 0 || messages[userMessageIndex].role !== "user") {
+      message.error("无法找到对应的用户消息");
+      return;
+    }
+
+    const userMessage = messages[userMessageIndex];
+
+    // 开始重新生成（不删除其他消息）
+    setIsLoading(true);
+    setRegeneratingIndex(messageIndex);
+    setStreamingMessage("");
+
+    let streamContent = "";
+
+    try {
+      const systemPrompt = getSystemPrompt();
+      const messagesToSend: ChatMessage[] = systemPrompt
+        ? [
+            {
+              id: "system",
+              role: "system",
+              content: systemPrompt,
+              timestamp: Date.now(),
+            },
+            userMessage,
+          ]
+        : [userMessage];
+
+      await window.electronAPI.chatStream(
+        { messages: messagesToSend },
+        (chunk: string) => {
+          streamContent += chunk;
+          setStreamingMessage(streamContent);
+        },
+        () => {
+          // 替换当前 AI 消息
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            newMessages[messageIndex] = {
+              id: `regenerated-${Date.now()}`,
+              role: "assistant",
+              content: streamContent,
+              timestamp: Date.now(),
+            };
+            return newMessages;
+          });
+          setStreamingMessage("");
+          setIsLoading(false);
+          setRegeneratingIndex(null);
+        },
+        (error: string) => {
+          message.error(`重新生成失败: ${error}`);
+          setIsLoading(false);
+          setStreamingMessage("");
+          setRegeneratingIndex(null);
+        },
+      );
+    } catch (error) {
+      message.error("重新生成失败");
+      setIsLoading(false);
+      setStreamingMessage("");
+      setRegeneratingIndex(null);
+    }
+  };
+
   // 导出对话历史
-  const handleExport = async (format: 'pdf' | 'html' | 'markdown' | 'word') => {
+  const handleExport = async (format: "pdf" | "html" | "markdown" | "word") => {
     if (messages.length === 0 && !streamingMessage) {
       message.warning("暂无可导出的对话");
       return;
@@ -883,14 +964,17 @@ const ChatView = (props: ChatViewProps) => {
       const exportMessages = [...messages];
       if (streamingMessage) {
         exportMessages.push({
-          id: 'streaming',
-          role: 'assistant',
+          id: "streaming",
+          role: "assistant",
           content: streamingMessage,
           timestamp: Date.now(),
         });
       }
 
-      const result = await window.electronAPI.exportChatHistory(exportMessages, format);
+      const result = await window.electronAPI.exportChatHistory(
+        exportMessages,
+        format,
+      );
 
       if (result.success) {
         message.success(`导出成功: ${result.filePath}`);
@@ -1096,13 +1180,24 @@ const ChatView = (props: ChatViewProps) => {
 
     const items: any[] = messages
       .filter((msg) => msg.role !== "system")
-      .map((msg) => {
+      .map((msg, index) => {
         const isUser = msg.role === "user";
+        const isRegenerating = regeneratingIndex === index;
+
         return {
           key: msg.id,
           role: isUser ? "user" : "ai",
-          content: msg.content,
+          // 如果正在重新生成，显示流式内容，否则显示原内容
+          content: isRegenerating ? streamingMessage : msg.content,
           placement: isUser ? ("end" as const) : ("start" as const),
+          loading: isRegenerating,
+          // 重新生成时显示打字机效果
+          typing: isRegenerating
+            ? {
+                step: 5,
+                interval: 30,
+              }
+            : undefined,
           avatar: (
             <ChatAvatar
               isUser={isUser}
@@ -1122,6 +1217,40 @@ const ChatView = (props: ChatViewProps) => {
                 />
               )
             : undefined,
+          // 使用 extra 插槽放置重新生成按钮（在消息气泡外部）
+          extra:
+            !isUser && !isRegenerating ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginLeft: 4,
+                  opacity: 0,
+                  transition: "opacity 0.2s",
+                }}
+                className="regenerate-button-container"
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ReloadOutlined style={{ fontSize: 14 }} />}
+                  onClick={() => handleRegenerate(msg.id)}
+                  disabled={isLoading}
+                  style={{
+                    color: themeVars.textSecondary,
+                    height: 28,
+                    width: 28,
+                    padding: 0,
+                    minWidth: 28,
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                />
+              </div>
+            ) : undefined,
           styles: {
             content: {
               background: isUser ? userBgColor : bgContainer,
@@ -1139,8 +1268,8 @@ const ChatView = (props: ChatViewProps) => {
         };
       });
 
-    // 添加流式消息（带打字机效果）
-    if (streamingMessage) {
+    // 只在新消息发送时添加流式消息（不是重新生成）
+    if (streamingMessage && regeneratingIndex === null) {
       items.push({
         key: "streaming",
         role: "ai",
@@ -1188,12 +1317,15 @@ const ChatView = (props: ChatViewProps) => {
   }, [
     messages,
     streamingMessage,
+    regeneratingIndex,
     darkMode,
     themeVars.primaryGradient,
     themeVars.bgContainer,
     themeVars.borderSecondary,
     themeVars.text,
     themeVars.primary,
+    isLoading,
+    handleRegenerate,
   ]);
 
   // ==================== 渲染 ====================
@@ -1756,24 +1888,24 @@ const ChatView = (props: ChatViewProps) => {
             menu={{
               items: [
                 {
-                  key: 'pdf',
-                  label: 'PDF 格式',
-                  onClick: () => handleExport('pdf'),
+                  key: "pdf",
+                  label: "PDF 格式",
+                  onClick: () => handleExport("pdf"),
                 },
                 {
-                  key: 'html',
-                  label: 'HTML 格式',
-                  onClick: () => handleExport('html'),
+                  key: "html",
+                  label: "HTML 格式",
+                  onClick: () => handleExport("html"),
                 },
                 {
-                  key: 'markdown',
-                  label: 'Markdown 格式',
-                  onClick: () => handleExport('markdown'),
+                  key: "markdown",
+                  label: "Markdown 格式",
+                  onClick: () => handleExport("markdown"),
                 },
                 {
-                  key: 'word',
-                  label: 'Word 格式',
-                  onClick: () => handleExport('word'),
+                  key: "word",
+                  label: "Word 格式",
+                  onClick: () => handleExport("word"),
                 },
               ],
             }}
@@ -2090,6 +2222,11 @@ const ChatView = (props: ChatViewProps) => {
         }
         .mention-tag:hover {
           background: ${darkMode ? "rgba(217, 119, 87, 0.25)" : "rgba(217, 119, 87, 0.15)"};
+        }
+
+        /* AI 消息 hover 时显示重新生成按钮 */
+        .ant-bubble:hover .regenerate-button-container {
+          opacity: 1 !important;
         }
       `}</style>
     </div>

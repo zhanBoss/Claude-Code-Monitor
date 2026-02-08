@@ -43,7 +43,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   // 拖拽状态 - 默认在左下角（距离右边很远，距离底部 20px）
   const [position, setPosition] = useState(() => {
     // 初始化时计算左下角的位置
-    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const windowWidth =
+      typeof window !== "undefined" ? window.innerWidth : 1920;
     return { x: windowWidth - 80, y: 20 }; // 距离右边 windowWidth-80，距离底部 20
   });
   const [isDragging, setIsDragging] = useState(false);
@@ -76,10 +77,12 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
     });
 
     // 监听配置更新（即时响应）
-    const configUpdated = window.electronAPI.onAutoCleanupConfigUpdated((config) => {
-      setEnabled(config.enabled ?? false);
-      setShowFloatingBall(config.showFloatingBall ?? true);
-    });
+    const configUpdated = window.electronAPI.onAutoCleanupConfigUpdated(
+      (config) => {
+        setEnabled(config.enabled ?? false);
+        setShowFloatingBall(config.showFloatingBall ?? true);
+      },
+    );
 
     // 组件挂载后立即请求一次最新状态（防止页面刷新后状态丢失）
     const refreshStatus = async () => {
@@ -112,8 +115,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
     if (textRef.current) {
       // 测量文字 + 小圆点 + gap + padding
       const textWidth = textRef.current.offsetWidth;
-      // 6 (小圆点) + 8 (gap) + textWidth + 8 (左padding) + 40 (右侧图标区域) + 8 (右padding)
-      setContentWidth(6 + 8 + textWidth + 8 + 40 + 8);
+      // 6 (小圆点) + 12 (gap) + textWidth + 12 (左padding) + 40 (右侧图标区域) + 12 (右padding)
+      setContentWidth(6 + 12 + textWidth + 12 + 40 + 12);
     }
   }, [remainingMs]);
 
@@ -174,7 +177,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   // 不启用时或关闭悬浮球时不渲染
   if (!enabled || !showFloatingBall) return null;
 
-  const remainingText = remainingMs !== null ? formatRemainingTime(remainingMs) : "--";
+  const remainingText =
+    remainingMs !== null ? formatRemainingTime(remainingMs) : "--";
 
   // 判断是否最后 1 分钟（60 秒）
   const isLastMinute = remainingMs !== null && remainingMs <= 60000;
@@ -187,7 +191,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
 
   // 基于球心位置同步计算展开方向（球在左侧→向右展开，球在右侧→向左展开）
   const ballCenterFromLeft = window.innerWidth - position.x - 24;
-  const expandDirection = ballCenterFromLeft < window.innerWidth / 2 ? "right" : "left";
+  const expandDirection =
+    ballCenterFromLeft < window.innerWidth / 2 ? "right" : "left";
 
   /*
    * 定位补偿：CSS right 定位时，宽度增大会向左扩展
@@ -195,7 +200,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
    * 向右展开（左侧球）：需要同步减小 right 值，使左边缘固定、右边缘向右扩展
    * 数学证明：left_edge = screenWidth - right - width，当 right 减少量 = width 增加量时，left_edge 恒定
    */
-  const rightAdjustment = expandDirection === "right" && shouldExpand ? dynamicWidth - 48 : 0;
+  const rightAdjustment =
+    expandDirection === "right" && shouldExpand ? dynamicWidth - 48 : 0;
   const adjustedRight = position.x - rightAdjustment;
 
   // 胶囊容器
@@ -307,11 +313,12 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 12,
               opacity: 1,
               transition: "opacity 0.2s ease",
               flex: 1,
-              flexDirection: expandDirection === "right" ? "row-reverse" : "row",
+              flexDirection:
+                expandDirection === "right" ? "row-reverse" : "row",
             }}
           >
             {/* 发光小圆点 */}
